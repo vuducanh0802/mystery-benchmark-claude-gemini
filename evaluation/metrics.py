@@ -1,0 +1,210 @@
+"""
+Evaluation metrics for the mystery benchmark
+
+Metrics:
+    1. **Solve rate** - fraction of instances correctly solved (full + partial)
+    2. **Belief accuracy** - KL-divergence / accuracy of beliefs vs ground truth at each step
+    3. **Clue efficiency** - fraction of relevant (non-red-herring) evidence discovered
+    4. **Token cost** - total LLM tokens consumed per instance
+    5. **Action efficiency** - actions used / budget
+    6. **Partial credit** - how many of (suspect, weapon, location) were correct
+
+All metrics are computed per-instance and can be aggregated across complexity levels.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class EpisodeMetrics:
+    """Metrics for a single benchmark episode."""
+    instance_id: str = ""
+    seed: int = 0
+    complexity_level: int = 1
+
+    # --- Solve rate ---
+    solved: bool = False
+    suspect_correct: bool = False
+    weapon_correct: bool = False
+    location_correct: bool = False
+    partial_score: float = 0.0      # fraction of (suspect, weapon, location) correct
+
+    # --- Belief accuracy ---
+    # Tracked at each step: was the top belief the ground truth?
+    belief_accuracy_trace: list[float] = field(default_factory=list)
+    final_belief_accuracy: float = 0.0
+
+    # --- Clue efficiency ---
+    total_relevant_evidence: int = 0
+    evidence_discovered: int = 0
+    clue_efficiency: float = 0.0     # discovered / total relevant
+
+    # --- Token cost ---
+    total_tokens: int = 0
+    tokens_per_action: float = 0.0
+
+    # --- Action efficiency ---
+    actions_used: int = 0
+    action_budget: int = 0
+    action_efficiency: float = 0.0   # actions_used / budget
+
+    # --- Timing ---
+    total_steps: int = 0
+    event_count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "instance_id": self.instance_id,
+            "seed": self.seed,
+            "complexity_level": self.complexity_level,
+            "solved": self.solved,
+            "suspect_correct": self.suspect_correct,
+            "weapon_correct": self.weapon_correct,
+            "location_correct": self.location_correct,
+            "partial_score": self.partial_score,
+            "belief_accuracy_trace": self.belief_accuracy_trace,
+            "final_belief_accuracy": self.final_belief_accuracy,
+            "total_relevant_evidence": self.total_relevant_evidence,
+            "evidence_discovered": self.evidence_discovered,
+            "clue_efficiency": self.clue_efficiency,
+            "total_tokens": self.total_tokens,
+            "tokens_per_action": self.tokens_per_action,
+            "actions_used": self.actions_used,
+            "action_budget": self.action_budget,
+            "action_efficiency": self.action_efficiency,
+            "total_steps": self.total_steps,
+            "event_count": self.event_count,
+        }
+
+
+def compute_episode_metrics(
+    episode_summary: dict[str, Any],
+    belief_snapshots: list[dict[str, Any]],
+    ground_truth: dict[str, Any],
+    total_tokens: int,
+    complexity_level: int = 1,
+) -> EpisodeMetrics:
+    """
+    Compute all metrics for a completed episode.
+
+    Parameters
+    ----------
+    episode_summary: dict
+        Output of ``MysteryEnvironment.get_episode_summary()``
+    belief_snapshots: list[dict]
+        Agent's belief state at each step.
+    ground_truth: dict
+        ``{"culprit_name": str, "weapon_name": str, "location_name": str}``.
+    total_tokens: int
+        Total LLM tokens consumed.
+    complexity_level: int
+        Complexity level (1-5).
+    """
+    m = EpisodeMetrics()
+    m.instance_id = f"seed_{episode_summary.get('seed', 0)}"
+    m.seed = episode_summary.get("seed", 0)
+    m.complexity_level = complexity_level
+
+    # Solve rate
+    m.solved = bool(episode_summary.get("accusation_correct", False))
+    # Check per-component from action_history
+    last_action = episode_summary.get("action_history", [{}])[-1] if episode_summary.get("action_history") else {}
+    # We rely on the accusation correct flag from the environment
+    if m.solved:
+        m.suspect_correct = m.weapon_correct = m.location_correct = True
+        m.partial_score = 1.0
+    else:
+        # Try to compute partial score from last accusation
+        m.partial_score = 0.0
+        # Will be overriden by runner if detailed accusation info available
+    
+    # Clue efficiency
+    total_evidence = episode_summary.get("total_evidence", 1)
+    discovered = len(episode_summary.get("evidence_discovered", []))
+    m.total_relevant_evidence = total_evidence
+    m.evidence_discovered = discovered
+    m.clue_efficiency = discovered / max(1, total_evidence)
+
+    # Belief accuracy trace
+    gt_suspect = ground_truth.get("culprit_name", "")
+    for snap in belief_snapshots:
+        sprobs = snap.get("suspect_probs", {})
+        if sprobs and gt_suspect:
+            # Accuracy = probability assigned to true culprit
+            accuracy = sprobs.get(gt_suspect, 0)
+            m.belief_accuracy_trace.append(accuracy)
+        else:
+            m.belief_accuracy_trace.append(0.0)
+    
+    if m.belief_accuracy_trace:
+        m.final_belief_accuracy = m.belief_accuracy_trace[-1]
+    
+    # Token cost
+    m.total_tokens = total_tokens
+    m.actions_used = episode_summary.get("actions_taken", 0)
+    m.action_budget = episode_summary.get("budget", 0)
+    m.tokens_per_action = total_tokens / max(1, m.actions_used)
+    m.action_efficiency = m.actions_used / max(1, m.action_budget)
+
+    m.total_steps = episode_summary.get("steps_elapsed", 0)
+    m.event_count = episode_summary.get("event_count", 0)
+
+    return m
+
+
+
+# ---------------------------------------------------------------------------
+# Aggregate metrics across instances
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AggregateMetrics:
+    """Aggregated metrics across multiple episodes, grouped by complexity."""
+    complexity_level: int = 0
+    n_instances: int = 0
+    solve_rate: float = 0.0
+    mean_partial_score: float = 0.0
+    mean_belief_accuracy: float = 0.0
+    mean_clue_efficiency: float = 0.0
+    mean_tokens: float = 0.0
+    mean_action_efficiency: float = 0.0
+    std_solve_rate: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "complexity_level": self.complexity_level,
+            "n_instances": self.n_instances,
+            "solve_rate": round(self.solve_rate, 4),
+            "mean_partial_score": round(self.mean_partial_score, 4),
+            "mean_belief_accuracy": round(self.mean_belief_accuracy, 4),
+            "mean_clue_efficiency": round(self.mean_clue_efficiency, 4),
+            "mean_tokens": round(self.mean_tokens, 1),
+            "mean_action_efficiency": round(self.mean_action_efficiency, 4),
+            "std_solve_rate": round(self.std_solve_rate, 4),
+        }
+
+
+def aggregate_metrics(episodes: list[EpisodeMetrics], level: int) -> AggregateMetrics:
+    """Aggregate episode metrics for a given complexity level."""
+    level_eps = [e for e in episodes if e.complexity_level == level]
+    if not level_eps:
+        return AggregateMetrics(complexity_level=level)
+
+    n = len(level_eps)
+    solve_rate = sum(e.solved for e in level_eps) / n
+    agg = AggregateMetrics(
+        complexity_level=level,
+        n_instances=n,
+        solve_rate=solve_rate,
+        mean_partial_score=sum(e.partial_score for e in level_eps) / n,
+        mean_belief_accuracy=sum(e.final_belief_accuracy for e in level_eps) / n,
+        mean_clue_efficiency=sum(e.clue_efficiency for e in level_eps) / n,
+        mean_tokens=sum(e.total_tokens for e in level_eps) / n,
+        mean_action_efficiency=sum(e.action_efficiency for e in level_eps) / n,
+        std_solve_rate=math.sqrt(solve_rate * (1 - solve_rate) / n) if n > 1 else 0.0,
+    )
+    return agg
