@@ -1,0 +1,164 @@
+{
+  "saved_at": "2026-04-13T14:51:49.226502",
+  "seed": 43,
+  "agent_location_id": "loc_628428",
+  "agent_inventory": [],
+  "actions_taken": 12,
+  "is_solved": true,
+  "accusation_correct": true,
+  "discovered_evidence": [
+    "ev_253873"
+  ],
+  "interviewed_characters": [
+    "chr_633856",
+    "chr_950613",
+    "chr_948580"
+  ],
+  "interview_histories": {
+    "chr_633856": [
+      {
+        "role": "user",
+        "content": "where were you at 9:00 PM?"
+      },
+      {
+        "role": "assistant",
+        "content": "I can't say exactly where I was at 9:00 PM without asking Cedric Elsworth. We were in each other's company from dinner until well past midnight, so he would know."
+      }
+    ],
+    "chr_950613": [
+      {
+        "role": "user",
+        "content": "where were you at 9:00 PM?"
+      },
+      {
+        "role": "assistant",
+        "content": "I was writing letters in my room. I came out only for water."
+      }
+    ],
+    "chr_948580": [
+      {
+        "role": "user",
+        "content": "did you see Thea Quinlan last night?"
+      },
+      {
+        "role": "assistant",
+        "content": "Yes, I was with Thea Quinlan in the Library Annex at the time of the murder. I can confirm that Rosalind Juno also went to the Library Annex with us. Do you have any further questions about that?"
+      }
+    ]
+  },
+  "action_history": [
+    {
+      "step": 0,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      },
+      "success": true,
+      "observation": "You move to the Library Annex.\nYou are in the Library Annex. A outdoor space known as the Library Annex. Present here: Thea Quinlan. You notice: crystal decanter, overturned chair, train ticket stub. Exit leads to Wine Pantry, Servants' Quarters. The weather is light rain."
+    },
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "crystal decanter"
+      },
+      "success": true,
+      "observation": "You examine the crystal decanter. A crystal decanter. This is evidence: Forensic traces recovered from the crystal decanter."
+    },
+    {
+      "step": 2,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Thea Quinlan",
+        "question": "where were you at 9:00 PM?"
+      },
+      "success": true,
+      "observation": "Thea Quinlan: \"I can't say exactly where I was at 9:00 PM without asking Cedric Elsworth. We were in each other's company from dinner until well past midnight, so he would know.\""
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "overturned chair"
+      },
+      "success": true,
+      "observation": "You examine the overturned chair. A overturned chair lying here."
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "train ticket stub"
+      },
+      "success": true,
+      "observation": "You examine the train ticket stub. A train ticket stub lying here."
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      },
+      "success": true,
+      "observation": "You move to the Wine Pantry.\nYou are in the Wine Pantry. A indoor space known as the Wine Pantry. Present here: Rosalind Juno, Cedric Elsworth. You notice: heavy statuette, open safe, cigar stub. Exit leads to Library Annex."
+    },
+    {
+      "step": 6,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Juno",
+        "question": "where were you at 9:00 PM?"
+      },
+      "success": true,
+      "observation": "Rosalind Juno: \"I was writing letters in my room. I came out only for water.\""
+    },
+    {
+      "step": 7,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Cedric Elsworth",
+        "question": "did you see Thea Quinlan last night?"
+      },
+      "success": true,
+      "observation": "Cedric Elsworth: \"Yes, I was with Thea Quinlan in the Library Annex at the time of the murder. I can confirm that Rosalind Juno also went to the Library Annex with us. Do you have any further questions about that?\""
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "heavy statuette"
+      },
+      "success": true,
+      "observation": "You examine the heavy statuette. A heavy statuette."
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "open safe"
+      },
+      "success": true,
+      "observation": "You examine the open safe. A open safe lying here."
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "cigar stub"
+      },
+      "success": true,
+      "observation": "You examine the cigar stub. A cigar stub lying here."
+    },
+    {
+      "step": 11,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Rosalind Juno",
+        "weapon_name": "crystal decanter",
+        "location_name": "Library Annex"
+      },
+      "success": true,
+      "observation": "CORRECT! Rosalind Juno committed the crime with the crystal decanter in the Library Annex."
+    }
+  ]
+}

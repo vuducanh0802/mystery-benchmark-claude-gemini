@@ -48,18 +48,18 @@ _CRIME_DESCRIPTIONS = [
     "The estate is in shock. {victim} has been killed — the body was found in the {location}.",
 ]
 
-_TIME_DESCRIPTIONS = [
-    "Time of death is estimated around step {step} of the evening.",
-    "The coroner puts the time of death near step {step} of the evening.",
-    "Estimated time of death: step {step}.",
-    "By all accounts, death occurred around step {step}.",
-    "Preliminary time-of-death estimate: step {step}.",
-    "Witnesses place the last signs of life at roughly step {step}.",
-    "The medical examiner believes death occurred at approximately step {step}.",
-    "All evidence points to the killing happening around step {step}.",
-    "According to forensic analysis, the victim died around step {step}.",
-    "Step {step} of the evening — that is when it happened, give or take.",
-]
+_TIME_DESCRIPTIONS = [                                                                                                                      
+    "Time of death is estimated around {time_of_death}.",                                                                                   
+    "The coroner puts the time of death near {time_of_death}.",                                                                             
+    "Estimated time of death: {time_of_death}.",                                                                                            
+    "By all accounts, death occurred around {time_of_death}.",
+    "Preliminary time-of-death estimate: {time_of_death}.",                                                                                 
+    "Witnesses place the last signs of life at roughly {time_of_death}.",
+    "The medical examiner believes death occurred at approximately {time_of_death}.",                                                       
+    "All evidence points to the killing happening around {time_of_death}.",                                                                 
+    "According to forensic analysis, the victim died around {time_of_death}.",
+    "{time_of_death} — that is when it happened, give or take.",                                                                            
+]  
 
 _SUSPECT_INTROS = [
     "Suspects: {suspects}.",
@@ -154,6 +154,17 @@ _ALL_SLOTS = [_TITLES, _CRIME_DESCRIPTIONS, _TIME_DESCRIPTIONS, _SUSPECT_INTROS,
 _PRIMES = [1, 7, 13, 31, 47, 61]
 
 
+def _step_to_time(step: int, num_steps: int) -> str:                                                                                        
+    """Convert a simulation step number to a clock time (7 PM – 1 AM window)."""                                                            
+    total_minutes = 360  # 6-hour evening window          
+    minutes_in = int((step / max(num_steps, 1)) * total_minutes)                                                                            
+    total = 19 * 60 + minutes_in  # start at 7:00 PM      
+    h, m = divmod(total, 60)                                                                                                                
+    h = h % 24                              
+    period = "AM" if h < 12 else "PM"                                                                                                       
+    h12 = h % 12 or 12                                    
+    return f"{h12}:{m:02d} {period}"    
+
 def render_initial_briefing(env: "MysteryEnvironment") -> str:
     """Opening scene description given to the agent as episode start."""
     state = env.state
@@ -178,7 +189,7 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
     fmt = {
         "victim": victim_name,
         "location": loc_name,
-        "step": state.murder_step,
+        "time_of_death": _step_to_time(state.murder_step, state.config.num_time_steps),
         "suspects": suspect_names,
         "budget": state.config.max_agent_actions,
     }

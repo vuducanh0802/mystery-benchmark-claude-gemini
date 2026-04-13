@@ -182,14 +182,22 @@ def _generate_evidence_and_objects(
     # --- Murder weapon ---
     weapon_names = list(rng.choice(pool.weapon_templates, size=min(config.num_weapons, len(pool.weapon_templates)), replace=False))
     murder_weapon_name = str(weapon_names[0])
-    mw_obj = WorldObject(
-        id=murder_weapon_id,
-        name=murder_weapon_name,
+    # After the murder the culprit moves the weapon away (harder difficulties)
+    # At easy/trivial the weapon stays at the scene; at harder levels it's moved.
+    if config.culprit_tamper_prob > 0.0 and len(location_ids) > 1:
+        other_locs = [l for l in location_ids if l != murder_location_id]
+        weapon_loc_id = str(rng.choice(other_locs))                                                                                         
+    else:                                                                                                                                   
+        weapon_loc_id = murder_location_id                                                                                                  
+                                                                                                                                            
+    mw_obj = WorldObject(                                                                                                                   
+        id=murder_weapon_id,                                                                                                                
+        name=murder_weapon_name,                                                                                                            
         description=f"A {murder_weapon_name}.",
-        location_id=murder_location_id,
-        is_weapon=True,
-        is_murder_weapon=True,
-    )
+        location_id=weapon_loc_id,                                                                                                          
+        is_weapon=True,                                   
+        is_murder_weapon=True,              
+    )        
     objects[murder_weapon_id] = mw_obj
 
     # Evidence on the murder weapon — deceptive traces possible
