@@ -156,33 +156,42 @@ data/benchmark_v1/
 uv run scripts/run_evaluation.py \
     --agent heuristic \
     --benchmark-dir data/benchmark_v1 \
-    --output-dir results/heuristic
+    --output-dir results/heuristic \
+    --npc-url http://localhost:8123/v1 \
+    --npc-model Qwen/Qwen3.5-27B
 
 # Claude Sonnet
 uv run scripts/run_evaluation.py \
     --agent claude \
     --model claude-sonnet-4-20250514 \
     --benchmark-dir data/benchmark_v1 \
-    --output-dir results/claude_sonnet
+    --output-dir results/claude_sonnet \
+    --npc-url http://localhost:8123/v1 \
+    --npc-model Qwen/Qwen3.5-27B
 
 # ChatGPT
 uv run scripts/run_evaluation.py \
     --agent chatgpt \
     --model gpt-4o \
     --benchmark-dir data/benchmark_v1 \
-    --output-dir results/chatgpt
+    --output-dir results/chatgpt \
+    --npc-url http://localhost:8123/v1 \
+    --npc-model Qwen/Qwen3.5-27B
 
 # Gemini
 uv run scripts/run_evaluation.py \
     --agent gemini \
     --model gemini-2.0-flash \
     --benchmark-dir data/benchmark_v1 \
-    --output-dir results/gemini
+    --output-dir results/gemini \
+    --npc-url http://localhost:8123/v1 \
+    --npc-model Qwen/Qwen3.5-27B
+
 
 # With LLM-powered NPCs (stateful interviews, lying-aware)
 uv run scripts/run_evaluation.py \
     --agent claude \
-    --npc-url http://localhost:8000/v1 \
+    --npc-url http://localhost:8123/v1 \
     --npc-model Qwen/Qwen2.5-7B-Instruct \
     --npc-seed 123 \
     --benchmark-dir data/benchmark_v1 \
@@ -338,7 +347,7 @@ The LLM generates fluent natural-language dialogue within these constraints. The
 
 To use LLM-powered NPCs, start a vLLM server:
 ```bash
-uv run vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000
+CUDA_VISIBLE_DEVICES=1 uv run vllm serve Qwen/Qwen3.5-27B --port 8123
 ```
 Then pass `--npc-url http://localhost:8000/v1` to `run_evaluation.py`.
 
