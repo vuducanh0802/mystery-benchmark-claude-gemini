@@ -3,21 +3,21 @@ Run agent evaluation on a generated benchmark suite.
 
 Usage examples:
     # Heuristic baseline (no API key needed):
-    python scripts/run_evaluation.py --benchmark data/benchmark_v1/ --agent heuristic --output results/heuristic/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent heuristic --output-dir results/heuristic/
 
     # Claude (Anthropic):
-    python scripts/run_evaluation.py --benchmark data/benchmark_v1/ --agent claude --output results/claude/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent claude --output-dir results/claude/
 
     # ChatGPT (OpenAI):
-    python scripts/run_evaluation.py --benchmark data/benchmark_v1/ --agent chatgpt --output results/chatgpt/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent chatgpt --output-dir results/chatgpt/
 
     # Gemini (Google):
-    python scripts/run_evaluation.py --benchmark data/benchmark_v1/ --agent gemini --output results/gemini/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent gemini --output-dir results/gemini/
 
     # With LLM-powered NPC interviews (requires vLLM or compatible endpoint):
-    python scripts/run_evaluation.py --benchmark data/benchmark_v1/ --agent claude \\
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent claude \\
         --npc-url http://localhost:8000/v1 --npc-model Qwen/Qwen2.5-27B-Instruct \\
-        --output results/claude_npc/
+        --output-dir results/claude_npc/
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def main() -> None:
             for name, cfg in AGENT_CONFIGS.items()
         ),
     )
-    parser.add_argument("--benchmark", required=True, help="Path to benchmark directory")
+    parser.add_argument("--benchmark-dir", dest="benchmark", required=True, help="Path to benchmark directory")
     parser.add_argument(
         "--agent",
         choices=list(AGENT_CONFIGS.keys()),
@@ -102,7 +102,7 @@ def main() -> None:
         help="Agent to evaluate",
     )
     parser.add_argument("--model", default=None, help="Override default model for the chosen agent")
-    parser.add_argument("--output", required=True, help="Output directory for results")
+    parser.add_argument("--output-dir", dest="output", required=True, help="Output directory for results")
     parser.add_argument("--max-instances", type=int, default=None)
     parser.add_argument(
         "--levels",
