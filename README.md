@@ -117,7 +117,7 @@ export GOOGLE_API_KEY="..."             # Gemini agents
 uv run scripts/play.py --npc-url http://localhost:8123/v1 --npc-model Qwen/Qwen3.5-27B
 
 # Choose difficulty and seed
-uv run scripts/play.py --level EASY --seed 42
+uv run scripts/play.py --level EASY --seed 42 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
 
 # Load a saved world file
 uv run scripts/play.py --load data/benchmark_v1/level_1/instance_10042.json

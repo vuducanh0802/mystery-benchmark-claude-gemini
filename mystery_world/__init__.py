@@ -102,7 +102,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.0, evidence_difficulty_min=0.1, evidence_difficulty_max=0.3, testimony_unreliability=0.0,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.60, 1.00, 1.00, 1.00, 1.00),
-        max_agent_actions=15,
+        max_agent_actions=30,
     ),
     ComplexityLevel.EASY: ComplexityConfig(
         num_locations=4, num_suspects=3, num_innocents=1, num_weapons=2,
@@ -113,7 +113,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.1, evidence_difficulty_min=0.15, evidence_difficulty_max=0.4, testimony_unreliability=0.1,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.45, 0.75, 0.90, 1.00, 1.00),
-        max_agent_actions=20,
+        max_agent_actions=40,
     ),
     ComplexityLevel.MEDIUM: ComplexityConfig(
         num_locations=5, num_suspects=4, num_innocents=2, num_weapons=3,
@@ -124,7 +124,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.2, evidence_difficulty_min=0.2, evidence_difficulty_max=0.6, testimony_unreliability=0.2,
         allow_suspect_corroborators=False, max_corroborators=2, culprit_alibi_weights=(0.30, 0.50, 0.70, 0.90, 1.00),
-        max_agent_actions=30,
+        max_agent_actions=60,
     ),
     ComplexityLevel.HARD: ComplexityConfig(
         num_locations=7, num_suspects=5, num_innocents=3, num_weapons=4,
@@ -135,7 +135,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.35, evidence_difficulty_min=0.3, evidence_difficulty_max=0.7, testimony_unreliability=0.3,
         allow_suspect_corroborators=True, max_corroborators=2, culprit_alibi_weights=(0.20, 0.35, 0.55, 0.80, 1.00),
-        max_agent_actions=40, reactive_events=True,
+        max_agent_actions=80, reactive_events=True,
     ),
     ComplexityLevel.EXPERT: ComplexityConfig(
         num_locations=10, num_suspects=7, num_innocents=4, num_weapons=5,
@@ -146,7 +146,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.5, evidence_difficulty_min=0.3, evidence_difficulty_max=0.8, testimony_unreliability=0.4,
         allow_suspect_corroborators=True, max_corroborators=3, culprit_alibi_weights=(0.10, 0.20, 0.40, 0.70, 1.00),
-        max_agent_actions=60,reactive_events=True,
+        max_agent_actions=120, reactive_events=True,
     ),
 }
 

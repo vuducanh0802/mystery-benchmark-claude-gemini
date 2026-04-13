@@ -112,6 +112,7 @@ def check_solvability(state: WorldState) -> dict[str, Any]:
         - The culprit's alibi is breakable (unverified or no corroborator)
         - At least 2 pieces of usable evidence point to the culprit
         - The murder weapon is discoverable
+        - Only one fact
     """
     culprit = state.get_culprit()
     if culprit is None:

@@ -97,15 +97,17 @@ def build_npc_system_prompt(char: "Character", state: "WorldState") -> str:
 
     return f"""You are {char.full_name}, a {char.personality} {role_label} being questioned by a detective about a recent murder.
 
-WHAT YOU KNOW:
+WHAT YOU KNOW (these are the ONLY facts you may draw on):
 {alibi_line}
-Things you witnessed:
+Things you personally witnessed:
 {_witnessed_summary(char, state)}
 Your relationships:
 {_relationship_summary(char, state)}
 
-BEHAVIOURAL RULES:
-- Respond only from your own perspective. Never invent facts you could not know.
+STRICT RULES — follow these exactly:
+- You may ONLY state facts listed above. Do NOT invent any other names, locations, times, or events.
+- If asked about something not in your knowledge above, say you do not know or do not recall — never fabricate details.
+- Do not mention any room, person, or object that is not explicitly listed above.
 - Be consistent with everything you have already said in this conversation.
 - Keep responses to 1-3 sentences. Stay in character at all times.
 - Do not volunteer information the detective has not asked about.
