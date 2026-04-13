@@ -110,6 +110,21 @@ export GOOGLE_API_KEY="..."             # Gemini agents
 
 ## Quick Start
 
+### 0. Play it yourself (human mode)
+
+```bash
+# Random MEDIUM case
+uv run scripts/play.py
+
+# Choose difficulty and seed
+uv run scripts/play.py --level EASY --seed 42
+
+# Load a saved world file
+uv run scripts/play.py --load data/benchmark_v1/level_1/instance_10042.json
+```
+
+Commands in-game: `look`, `go <room>`, `examine <object>`, `search`, `talk <name>`, `take <object>`, `inventory`, `map`, `suspects`, `accuse`, `wait`, `help`, `quit`.
+
 ### 1. Generate a benchmark suite
 
 ```bash
@@ -260,6 +275,7 @@ print(env.get_score())
 
 | File | Description |
 |------|-------------|
+| `play.py` | **Human-player mode** — interactive CLI to play a mystery case yourself |
 | `generate_benchmark.py` | CLI: generate N instances per level, write JSON + index |
 | `run_evaluation.py` | CLI: load benchmark, run agent, write per-episode results + `summary.json` |
 
