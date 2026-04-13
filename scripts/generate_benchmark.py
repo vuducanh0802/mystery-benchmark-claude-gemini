@@ -2,11 +2,10 @@
 Generate a benchmark suite of mystery instances.
 
 Usage:
-    python scripts/generate_benchmark.py --n-per-level 20 --levels 5 --seed 42 --output data/benchmark_v1/
+    uv run scripts/generate_benchmark.py --levels TRIVIAL EASY MEDIUM --instances-per-level 5 --seed 42 --output-dir data/benchmark_v1
 """
 
 import argparse
-import logging
 import sys
 from pathlib import Path
 import structlog
@@ -21,24 +20,39 @@ from benchmark.verify import (
     compute_diversity_metrics,
     export_annotation_sheet
 )
+from mystery_world import ComplexityLevel
 from mystery_world.world import WorldState
+
+LEVEL_NAMES = {lvl.name: lvl.value for lvl in ComplexityLevel}
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate MysteryBench benchmark suite")
-    parser.add_argument("--n-per-level", type=int, default=20, help="Instances per complexity level")
-    parser.add_argument("--levels", type=int, default=5, help="Number of complexity levels (1-5)")
+    parser = argparse.ArgumentParser(description="Generate MysteryArena benchmark suite")
+    parser.add_argument(
+        "--levels", nargs="+", default=["TRIVIAL", "EASY", "MEDIUM", "HARD", "EXPERT"],
+        metavar="LEVEL",
+        help=f"Complexity levels to generate. Choices: {list(LEVEL_NAMES)}",
+    )
+    parser.add_argument("--instances-per-level", type=int, default=20, dest="n_per_level",
+                        help="Instances per complexity level")
     parser.add_argument("--seed", type=int, default=42, help="Base random seed")
-    parser.add_argument("--output", type=str, default="data/benchmark_v1", help="Output directory")
+    parser.add_argument("--output-dir", type=str, default="data/benchmark_v1", dest="output",
+                        help="Output directory")
     parser.add_argument("--expert-annotations", action="store_true", help="Export human annotation sheets")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     logger = structlog.get_logger()
 
-    # Generate
-    level_list = list(range(1, args.levels + 1))
-    logger.info(f"Generating {args.n_per_level} instances x {len(level_list)} levels {args.n_per_level * len(level_list)} total")
+    # Resolve level names → int values
+    level_list = []
+    for name in args.levels:
+        name_upper = name.upper()
+        if name_upper not in LEVEL_NAMES:
+            parser.error(f"Unknown level '{name}'. Choices: {list(LEVEL_NAMES)}")
+        level_list.append(LEVEL_NAMES[name_upper])
+
+    logger.info(f"Generating {args.n_per_level} instances x {len(level_list)} levels = {args.n_per_level * len(level_list)} total")
     manifest = generate_benchmark_suite(
         n_per_level=args.n_per_level,
         levels=level_list,

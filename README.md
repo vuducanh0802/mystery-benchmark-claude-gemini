@@ -80,22 +80,21 @@ Agent              world.py              npc_responder.py       vLLM / Together 
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/mystery-arena.git
-cd mystery-arena
-pip install -r requirements.txt
+git clone https://github.com/nguyentthong/mystery-benchmark.git
+cd mystery-benchmark
+uv sync
 ```
 
-**Core requirements** (`requirements.txt`):
-```
-anthropic
-openai
-pyyaml
-```
+[uv](https://docs.astral.sh/uv/) is the recommended package manager. It reads `pyproject.toml` and creates a virtual environment automatically. If you don't have uv installed:
 
-For NPC interviews using a local LLM (optional):
 ```bash
-pip install vllm
-# or use Together AI / any OpenAI-compatible endpoint
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+All dependencies (`anthropic`, `openai`, `structlog`, etc.) are declared in `pyproject.toml` and installed by `uv sync`. To add a new dependency:
+
+```bash
+uv add <package>
 ```
 
 ### API Keys
@@ -114,55 +113,59 @@ export GOOGLE_API_KEY="..."             # Gemini agents
 ### 1. Generate a benchmark suite
 
 ```bash
-python scripts/generate_benchmark.py \
+uv run scripts/generate_benchmark.py \
     --levels TRIVIAL EASY MEDIUM \
     --instances-per-level 5 \
     --seed 42 \
     --output-dir data/benchmark_v1
 ```
 
+Valid level names: `TRIVIAL`, `EASY`, `MEDIUM`, `HARD`, `EXPERT`.
+
 Output structure:
 ```
 data/benchmark_v1/
-  TRIVIAL_0001.json
-  TRIVIAL_0002.json
-  ...
-  MEDIUM_0005.json
-  index.json          ← metadata for all instances
+  level_1/
+    instance_10042.json
+    solution_10042.json
+    ...
+  level_2/
+    ...
+  manifest.json          ← index of all instances with solutions
 ```
 
 ### 2. Run evaluation
 
 ```bash
 # Heuristic baseline (no API key needed)
-python scripts/run_evaluation.py \
+uv run scripts/run_evaluation.py \
     --agent heuristic \
     --benchmark-dir data/benchmark_v1 \
     --output-dir results/heuristic
 
 # Claude Sonnet
-python scripts/run_evaluation.py \
+uv run scripts/run_evaluation.py \
     --agent claude \
     --model claude-sonnet-4-20250514 \
     --benchmark-dir data/benchmark_v1 \
     --output-dir results/claude_sonnet
 
 # ChatGPT
-python scripts/run_evaluation.py \
+uv run scripts/run_evaluation.py \
     --agent chatgpt \
     --model gpt-4o \
     --benchmark-dir data/benchmark_v1 \
     --output-dir results/chatgpt
 
 # Gemini
-python scripts/run_evaluation.py \
+uv run scripts/run_evaluation.py \
     --agent gemini \
     --model gemini-2.0-flash \
     --benchmark-dir data/benchmark_v1 \
     --output-dir results/gemini
 
 # With LLM-powered NPCs (stateful interviews, lying-aware)
-python scripts/run_evaluation.py \
+uv run scripts/run_evaluation.py \
     --agent claude \
     --npc-url http://localhost:8000/v1 \
     --npc-model Qwen/Qwen2.5-7B-Instruct \
