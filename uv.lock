@@ -1544,6 +1544,10 @@ dependencies = [
     { name = "openai" },
     { name = "pyyaml" },
     { name = "structlog" },
+]
+
+[package.optional-dependencies]
+npc-llm = [
     { name = "vllm" },
 ]
 
@@ -1553,8 +1557,9 @@ requires-dist = [
     { name = "openai", specifier = ">=2.31.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "structlog", specifier = ">=25.5.0" },
-    { name = "vllm", specifier = ">=0.19.0" },
+    { name = "vllm", marker = "extra == 'npc-llm'", specifier = ">=0.19.0" },
 ]
+provides-extras = ["npc-llm"]
 
 [[package]]
 name = "networkx"

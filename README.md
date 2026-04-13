@@ -338,9 +338,7 @@ The LLM generates fluent natural-language dialogue within these constraints. The
 
 To use LLM-powered NPCs, start a vLLM server:
 ```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model Qwen/Qwen2.5-7B-Instruct \
-    --port 8000
+uv run vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000
 ```
 Then pass `--npc-url http://localhost:8000/v1` to `run_evaluation.py`.
 
