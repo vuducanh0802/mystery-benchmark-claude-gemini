@@ -8,11 +8,20 @@ Uses any OpenAI-compatible endpoint (vLLM, Together AI, etc.).
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mystery_world.entities import Character
     from mystery_world.world import WorldState
+
+def _strip_thinking(text: str) -> str:
+    """Remove <think>...</think> blocks emitted by reasoning models (e.g. Qwen3)."""
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE)
+    # Also strip any leftover "Thinking Process:" preamble style output
+    text = re.sub(r"(?i)^thinking process:.*?(?=\n\S)", "", text, flags=re.DOTALL)
+    return text.strip()
+
 
 _DEFAULT_NPC_URL = "http://localhost:8000/v1"
 _DEFAULT_NPC_MODEL = "Qwen/Qwen2.5-27B-Instruct"
@@ -167,10 +176,15 @@ class NPCResponder:
             resp = self._client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "system", "content": system}] + messages,
-                max_tokens=256,
+                max_tokens=512,
                 temperature=0.7,
-                extra_body={"seed": self.seed},
+                extra_body={
+                    "seed": self.seed,
+                    # Disable chain-of-thought for Qwen3 thinking models
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
             )
-            return resp.choices[0].message.content.strip()
+            raw = resp.choices[0].message.content or ""
+            return _strip_thinking(raw).strip()
         except Exception as exc:
             return f"{char.full_name} stares at you silently and says nothing. (Error: {exc})"

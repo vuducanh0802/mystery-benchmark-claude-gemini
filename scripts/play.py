@@ -263,6 +263,23 @@ def main() -> None:
         help="Complexity level for a fresh case (default: MEDIUM)",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random seed (random if omitted)")
+    parser.add_argument(
+        "--npc-url",
+        default=None,
+        help="OpenAI-compatible base URL for LLM-powered NPC interviews (e.g. http://localhost:8123/v1). "
+             "If omitted, NPCs use a deterministic fallback.",
+    )
+    parser.add_argument(
+        "--npc-model",
+        default="Qwen/Qwen3.5-27B",
+        help="Model served at --npc-url (default: Qwen/Qwen3.5-27B)",
+    )
+    parser.add_argument(
+        "--npc-seed",
+        type=int,
+        default=42,
+        help="Fixed seed for NPC responses (default: 42)",
+    )
     args = parser.parse_args()
 
     if args.load:
@@ -277,6 +294,15 @@ def main() -> None:
         world_state = generate_mystery(config, seed)
 
     env = MysteryEnvironment(world_state)
+
+    if args.npc_url:
+        from mystery_world.npc_responder import NPCResponder
+        responder = NPCResponder(base_url=args.npc_url, model=args.npc_model, seed=args.npc_seed)
+        env.set_npc_responder(responder)
+        print(f"NPC interviews: {args.npc_model} @ {args.npc_url}")
+    else:
+        print("NPC interviews: deterministic fallback (pass --npc-url to use an LLM)")
+
     play(env)
 
 

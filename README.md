@@ -114,7 +114,7 @@ export GOOGLE_API_KEY="..."             # Gemini agents
 
 ```bash
 # Random MEDIUM case
-uv run scripts/play.py
+uv run scripts/play.py --npc-url http://localhost:8123/v1 --npc-model Qwen/Qwen3.5-27B
 
 # Choose difficulty and seed
 uv run scripts/play.py --level EASY --seed 42
@@ -195,7 +195,9 @@ uv run scripts/run_evaluation.py \
     --npc-model Qwen/Qwen2.5-7B-Instruct \
     --npc-seed 123 \
     --benchmark-dir data/benchmark_v1 \
-    --output-dir results/claude_llm_npcs
+    --output-dir results/claude_llm_npcs \
+    --npc-url http://localhost:8123/v1 \
+    --npc-model Qwen/Qwen3.5-27B
 ```
 
 Each run produces per-episode JSON files and a `summary.json`:
@@ -349,7 +351,7 @@ To use LLM-powered NPCs, start a vLLM server:
 ```bash
 CUDA_VISIBLE_DEVICES=1 uv run vllm serve Qwen/Qwen3.5-27B --port 8123
 ```
-Then pass `--npc-url http://localhost:8000/v1` to `run_evaluation.py`.
+Then pass `--npc-url http://localhost:8123/v1` to `run_evaluation.py` or `play.py`.
 
 ---
 
