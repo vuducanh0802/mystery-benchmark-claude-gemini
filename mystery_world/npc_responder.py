@@ -55,6 +55,26 @@ def _relationship_summary(char: "Character", state: "WorldState") -> str:
     return "\n".join(lines) if lines else "- No strong connections to speak of."
 
 
+def _corroboration_summary(char: "Character", state: "WorldState") -> str:                                                                                                             
+    """                                                                                                                                                                                
+    If this character is a genuine alibi corroborator for someone,
+    tell them that fact so they can confirm it truthfully.                                                                                                                             
+    Lying corroborators are handled separately by _lying_instruction.
+    """                                                                                                                                                                                
+    lines = []                          
+    for other in state.characters.values():                                                                                                                                            
+        if (                                                                                                                                                                           
+            other.alibi_corroborator_id == char.id                                                                                                                                     
+            and other.alibi_corroboration_is_genuine                                                                                                                                   
+            and other.is_alive                            
+        ):                                                                                                                                                                             
+            lines.append(
+                f"- You were with {other.full_name} during the relevant time window "                                                                                                  
+                f"and can confirm their whereabouts."     
+            )
+    return "\n".join(lines) if lines else ""                                                                                                                                           
+
+
 def _lying_instruction(char: "Character", state: "WorldState") -> str:
     """
     Returns ground-truth-derived instruction text telling the character HOW to lie.
@@ -88,26 +108,62 @@ def _lying_instruction(char: "Character", state: "WorldState") -> str:
 def build_npc_system_prompt(char: "Character", state: "WorldState") -> str:
     from mystery_world.entities import CharacterRole
     role_label = "suspect" if CharacterRole.SUSPECT in char.roles else "witness"
-    alibi_line = (
-        f"Your alibi: {char.alibi_details}"
-        if char.has_alibi
-        else "You have no specific alibi for the critical time window."
-    )
+
+    current_loc = state.locations.get(char.location_id)
+    current_loc_name = current_loc.name if current_loc else "unknown"
+
+    # Check if this character is a genuine alibi corroborator for another suspect.
+    # If so, their whereabouts line must reflect being with that suspect — not "alone".
+    corroborated_suspect = None
+    for other in state.characters.values():
+        if (
+            other.alibi_corroborator_id == char.id
+            and other.alibi_corroboration_is_genuine
+            and other.is_alive
+        ):
+            corroborated_suspect = other
+            break
+
+    if char.has_alibi:
+        alibi_line = f"Your whereabouts: {char.alibi_details}"
+    elif corroborated_suspect is not None:
+        suspect_loc = state.locations.get(corroborated_suspect.location_id)
+        suspect_loc_name = suspect_loc.name if suspect_loc else current_loc_name
+        alibi_line = (
+            f"At the time of the murder you were with {corroborated_suspect.full_name} "
+            f"in the {suspect_loc_name}. You can confirm they were there with you."
+        )
+    else:
+        alibi_line = (
+            f"At the time of the murder you were in the {current_loc_name}, alone. "
+            f"You have no alibi and no one can confirm your whereabouts."
+        )
+
     lying_block = _lying_instruction(char, state)
 
+    known_locations = ", ".join(loc.name for loc in state.locations.values())
+    known_people = ", ".join(
+        c.full_name for c in state.characters.values() if c.id != char.id and c.is_alive
+    )
+
     return f"""You are {char.full_name}, a {char.personality} {role_label} being questioned by a detective about a recent murder.
+You are {char.full_name}. You are currently in the {current_loc_name}.
 
 WHAT YOU KNOW (these are the ONLY facts you may draw on):
-{alibi_line}
+Your whereabouts: {alibi_line}
 Things you personally witnessed:
 {_witnessed_summary(char, state)}
 Your relationships:
 {_relationship_summary(char, state)}
 
+The only locations that exist: {known_locations}.
+The only other people: {known_people}.
+
 STRICT RULES — follow these exactly:
+- You are {char.full_name}. Never refer to yourself in the third person.
 - You may ONLY state facts listed above. Do NOT invent any other names, locations, times, or events.
-- If asked about something not in your knowledge above, say you do not know or do not recall — never fabricate details.
-- Do not mention any room, person, or object that is not explicitly listed above.
+- If asked about something not in your knowledge above, say "I don't know" or "I don't recall" — never fabricate.
+- Do not mention any room, person, or object not in the lists above.
 - Be consistent with everything you have already said in this conversation.
 - Keep responses to 1-3 sentences. Stay in character at all times.
 - Do not volunteer information the detective has not asked about.

@@ -51,8 +51,9 @@ COMMANDS
   accuse                        — make your final accusation (you will be prompted)
   map                           — show the estate map and your current position
   suspects                      — list all suspects
+  save                          — save current session to --save-dir
   help                          — show this message
-  quit                          — exit without finishing
+  quit                          — save and exit without finishing
 """
 
 LEVEL_NAMES = {lvl.name: lvl for lvl in ComplexityLevel}
@@ -111,7 +112,7 @@ def _parse_command(raw: str) -> tuple[AgentAction, dict] | None:
 # Main game loop
 # ---------------------------------------------------------------------------
 
-def play(env: MysteryEnvironment) -> None:
+def play(env: MysteryEnvironment, save_dir: Path | None = None) -> None:
     state = env.state
 
     # Build quick-reference data
@@ -185,7 +186,18 @@ def play(env: MysteryEnvironment) -> None:
             _show_suspects()
             continue
 
+        if low in ("save", "s"):
+            if save_dir:
+                saved = env.save_session(save_dir)
+                print(f"Session saved to {saved}")
+            else:
+                print("No save directory configured. Restart with --save-dir <path>.")
+            continue
+
         if low in ("quit", "exit", "q"):
+            if save_dir:
+                saved = env.save_session(save_dir)
+                print(f"Session saved to {saved}")
             print("You leave the case unsolved.")
             return
 
@@ -228,6 +240,11 @@ def play(env: MysteryEnvironment) -> None:
         result = env.step(action, **kwargs)
         obs = render_step_observation(env, result.observation)
         _print_result(obs)
+
+    # ── Auto-save on episode end ─────────────────────────────────────────
+    if save_dir:
+        saved = env.save_session(save_dir)
+        print(f"\nSession auto-saved to {saved}")
 
     # ── End screen ──────────────────────────────────────────────────────
     summary = env.get_episode_summary()
@@ -280,7 +297,15 @@ def main() -> None:
         default=42,
         help="Fixed seed for NPC responses (default: 42)",
     )
+    parser.add_argument(
+        "--save-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory to save session (world + transcript). Auto-saved on quit/game-over.",
+    )
     args = parser.parse_args()
+
+    import datetime
 
     if args.load:
         world_state = WorldState.load(args.load)
@@ -295,6 +320,13 @@ def main() -> None:
 
     env = MysteryEnvironment(world_state)
 
+    # Determine save directory
+    save_dir: Path | None = None
+    if args.save_dir:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_dir = Path(args.save_dir) / f"seed{world_state.seed}_{ts}"
+        print(f"Session will be saved to: {save_dir}")
+
     if args.npc_url:
         from mystery_world.npc_responder import NPCResponder
         responder = NPCResponder(base_url=args.npc_url, model=args.npc_model, seed=args.npc_seed)
@@ -303,7 +335,7 @@ def main() -> None:
     else:
         print("NPC interviews: deterministic fallback (pass --npc-url to use an LLM)")
 
-    play(env)
+    play(env, save_dir=save_dir)
 
 
 if __name__ == "__main__":

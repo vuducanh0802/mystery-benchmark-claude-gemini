@@ -496,3 +496,54 @@ class MysteryEnvironment:
             "event_count": len(self._state.event_log),
             "action_history": self.action_history,
         }
+
+    # ------------------------------------------------------------------
+    # Session save / load (world + agent state + interview transcripts)
+    # ------------------------------------------------------------------
+    def save_session(self, directory: str | Path) -> Path:
+        """
+        Save the full session to *directory*:
+          world.json          — full WorldState (can be reloaded with --load)
+          session.json        — agent state + interview transcripts + action log
+        Returns the directory path.
+        """
+        import datetime
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+
+        # World state
+        self._state.save(directory / "world.json")
+
+        # Agent state
+        session = {
+            "saved_at": datetime.datetime.now().isoformat(),
+            "seed": self._state.seed,
+            "agent_location_id": self.agent_location_id,
+            "agent_inventory": self.agent_inventory,
+            "actions_taken": self.actions_taken,
+            "is_solved": self.is_solved,
+            "accusation_correct": self.accusation_correct,
+            "discovered_evidence": list(self._discovered_evidence),
+            "interviewed_characters": list(self._interviewed_characters),
+            "interview_histories": self._interview_histories,
+            "action_history": self.action_history,
+        }
+        (directory / "session.json").write_text(json.dumps(session, indent=2))
+        return directory
+
+    def load_session(self, directory: str | Path) -> None:
+        """
+        Restore agent state from a previously saved session directory.
+        Call this after constructing MysteryEnvironment with the saved world.json.
+        """
+        directory = Path(directory)
+        session = json.loads((directory / "session.json").read_text())
+        self.agent_location_id = session["agent_location_id"]
+        self.agent_inventory = session["agent_inventory"]
+        self.actions_taken = session["actions_taken"]
+        self.is_solved = session["is_solved"]
+        self.accusation_correct = session["accusation_correct"]
+        self._discovered_evidence = set(session["discovered_evidence"])
+        self._interviewed_characters = set(session["interviewed_characters"])
+        self._interview_histories = session["interview_histories"]
+        self.action_history = session["action_history"]
