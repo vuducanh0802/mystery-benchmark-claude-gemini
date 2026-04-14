@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from mystery_world.entities import CharacterRole, EvidenceState, EvidenceType
+from mystery_world.entities import CharacterRole, EdgeType, EvidenceState, EvidenceType
 from mystery_world.world import WorldState
 
 
@@ -178,6 +178,40 @@ def check_solvability(state: WorldState) -> dict[str, Any]:
     }
 
 
+def check_locard_solvability(state: WorldState) -> dict[str, Any]:
+    """Verify the Locard triangle is closable: each edge has at least one
+    discoverable fresh evidence pointing to the correct entities."""
+    issues: list[str] = []
+    murder_ts = state.murder_timestamp
+    threshold = state.freshness_threshold
+
+    for edge in EdgeType:
+        found = False
+        for ev in state.evidence.values():
+            if ev.is_red_herring or ev.state == EvidenceState.DESTROYED or ev.discovery_difficulty >= 1.0:
+                continue
+            if ev.relevance is None or ev.relevance.edge_type != edge:
+                continue
+            if abs(ev.relevance.contact_timestamp - murder_ts) >= threshold:
+                continue
+            rel = ev.relevance
+            if edge == EdgeType.SUSPECT_WEAPON and state.culprit_id in rel.subject_ids and state.murder_weapon_id in rel.subject_ids:
+                found = True
+            elif edge == EdgeType.WEAPON_VICTIM and state.murder_weapon_id in rel.subject_ids and state.victim_id in rel.subject_ids:
+                found = True
+            elif edge == EdgeType.SUSPECT_ROOM and state.culprit_id in rel.subject_ids and state.murder_location_id in rel.subject_ids:
+                found = True
+            if found:
+                break
+        if not found:
+            issues.append(f"No discoverable fresh evidence for edge {edge.name}")
+
+    return {
+        "solvable": len(issues) == 0,
+        "issues": issues,
+        "triangle_edges_covered": 3 - len(issues),
+    }
+    
 # ---------------------------------------------------------------------------
 # Human annotation export
 # ---------------------------------------------------------------------------

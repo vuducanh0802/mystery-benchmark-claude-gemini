@@ -19,12 +19,21 @@ import numpy as np
 
 from mystery_world import ComplexityConfig
 from mystery_world.entities import (
+    AlibiClaim,
     Character,
     CharacterRole,
+    EdgeArgument,
+    EdgeRelevance,
+    EdgeType,
     Evidence,
     EvidenceState,
     Location,
+    RouteConstraint,
+    ScoreResult,
+    TemporalLabel,
     TimelineEntry,
+    TimeStyle,
+    WitnessStatement,
     WorldObject,
 )
 from mystery_world.events import WorldEvent, process_all_events
@@ -44,7 +53,9 @@ class AgentAction(Enum):
     WAIT = auto()               # pass one time step
     CHECK_INVENTORY = auto()               # review collected clues
     TAKE_OBJECT = auto()               # pick up portable object
-
+    ANALYZE = auto()         # temporal assessment of one piece of evidence
+    TRAVEL_TIME = auto()     # minimum steps between two rooms (constraint-aware)
+    CHECK_ROUTE = auto()     # was a specific passage open at a given clock time?
 
 @dataclass
 class ActionResult:
@@ -85,6 +96,14 @@ class WorldState:
     body_location_id: str = ""     # where the body was found (may differ)
     murder_step: int = 0
     motive: str = ""
+    # --- Locard triangle ---
+    murder_timestamp: float = 0.0
+    freshness_threshold: float = 2.0
+
+    # --- Temporal reasoning ---
+    witness_statements: list[WitnessStatement] = field(default_factory=list)
+    route_constraints: list[RouteConstraint] = field(default_factory=list)
+    anchor_events: dict[str, int] = field(default_factory=dict)
 
 
     def get_culprit(self) -> Character | None:
@@ -115,6 +134,11 @@ class WorldState:
             "body_location_id": self.body_location_id,
             "murder_step": self.murder_step,
             "motive": self.motive,
+            "murder_timestamp": self.murder_timestamp,
+            "freshness_threshold": self.freshness_threshold,
+            "witness_statements": [w.to_dict() for w in self.witness_statements],
+            "route_constraints": [r.to_dict() for r in self.route_constraints],
+            "anchor_events": self.anchor_events,
         }
 
 
@@ -136,6 +160,9 @@ class WorldState:
             murder_location_id=d["murder_location_id"],
             body_location_id=d.get("body_location_id", d["murder_location_id"]),
             murder_step=d["murder_step"],
+            murder_timestamp=d.get("murder_timestamp", float(d["murder_step"])),
+            freshness_threshold=d.get("freshness_threshold", 2.0),
+            anchor_events=d.get("anchor_events", {}),
             motive=d["motive"],
         )
         ws.locations = {k: Location.from_dict(v) for k, v in d["locations"].items()}
@@ -143,6 +170,12 @@ class WorldState:
         ws.objects = {k: WorldObject.from_dict(v) for k, v in d["objects"].items()}
         ws.evidence = {k: Evidence.from_dict(v) for k, v in d["evidence"].items()}
         ws.ground_truth_timeline = [TimelineEntry.from_dict(e) for e in d["ground_truth_timeline"]]
+        ws.witness_statements = [
+            WitnessStatement.from_dict(w) for w in d.get("witness_statements", [])
+        ]
+        ws.route_constraints = [
+            RouteConstraint.from_dict(r) for r in d.get("route_constraints", [])
+        ]
         return ws
 
 
@@ -203,12 +236,23 @@ class MysteryEnvironment:
         if loc is None:
             return "You are nowhere."
         parts = [f"You are in the {loc.name}. {loc.description}"]
-        # Characters present
+        # Characters present (alive) — include physical description
         chars_here = [
             self._state.characters[cid]
             for cid in loc.characters_here
             if cid in self._state.characters and self._state.characters[cid].is_alive
         ]
+        for c in chars_here:
+            pt = c.physical_traits
+            parts.append(f"{c.full_name} — {pt.build}, {pt.hair}, {pt.hands}.")
+        # Dead bodies
+        dead_here = [
+            self._state.characters[cid]
+            for cid in loc.characters_here
+            if cid in self._state.characters and not self._state.characters[cid].is_alive
+        ]
+        for d in dead_here:
+            parts.append(f"The body of {d.full_name} lies here.")
         if chars_here:
             names = ", ".join(c.full_name for c in chars_here)
             parts.append(f"Present here: {names}.")
@@ -284,10 +328,124 @@ class MysteryEnvironment:
             AgentAction.WAIT: self._handle_wait,
             AgentAction.CHECK_INVENTORY: self._handle_inventory,
             AgentAction.TAKE_OBJECT: self._handle_take,
+            AgentAction.ANALYZE:      self._handle_analyze,
+            AgentAction.TRAVEL_TIME:  self._handle_travel_time,
+            AgentAction.CHECK_ROUTE:  self._handle_check_route,
         }
         handler = handlers.get(action, self._handle_wait)
         return handler(**kwargs)
 
+
+    def _handle_analyze(self, evidence_id: str = "", **_: Any) -> ActionResult:
+        """Temporal assessment of one piece of evidence. Costs 1 action."""
+        if evidence_id not in self._discovered_evidence:
+            return ActionResult(False, f"Evidence '{evidence_id}' not in your collection.")
+        ev = self._state.evidence.get(evidence_id)
+        if ev is None:
+            return ActionResult(False, f"Evidence '{evidence_id}' does not exist.")
+        if ev.relevance is None:
+            return ActionResult(True, f"You analyze {ev.name}. No forensically relevant contact traces found.")
+
+        rel = ev.relevance
+        freshness = abs(rel.contact_timestamp - self._state.murder_timestamp)
+        threshold = self._state.freshness_threshold
+
+        if rel.surface_label == TemporalLabel.CLEARLY_FRESH:
+            assessment = "This trace appears very recent — consistent with the time of the murder."
+        elif rel.surface_label == TemporalLabel.CLEARLY_STALE:
+            assessment = "This trace is old — clearly predates the murder by a significant margin."
+        else:  # AMBIGUOUS
+            if freshness < threshold:
+                assessment = "Analysis suggests this trace is relatively recent, possibly within the relevant timeframe."
+            else:
+                assessment = "Analysis suggests this trace may be older than it first appears."
+
+        return ActionResult(True, f"You analyze {ev.name}. {assessment}")
+
+
+    def _handle_travel_time(
+        self, from_room: str = "", to_room: str = "", at_time: str = "", **_: Any
+    ) -> ActionResult:
+        """Minimum steps between two rooms, respecting route constraints active at_time.
+        If at_time omitted, returns unconstrained minimum. Costs 1 action."""
+        from_loc = next(
+            (l for l in self._state.locations.values() if l.name.lower() == from_room.lower()),
+            None,
+        )
+        to_loc = next(
+            (l for l in self._state.locations.values() if l.name.lower() == to_room.lower()),
+            None,
+        )
+        if from_loc is None:
+            return ActionResult(False, f"Unknown room: '{from_room}'.")
+        if to_loc is None:
+            return ActionResult(False, f"Unknown room: '{to_room}'.")
+        if from_loc.id == to_loc.id:
+            return ActionResult(True, f"You are already in the {to_room}. No travel needed.")
+
+        active: list[RouteConstraint] = []
+        if at_time:
+            at_step = _clock_str_to_step(at_time, self._state.config.world_start_hour)
+            if at_step is not None:
+                active = [
+                    rc for rc in self._state.route_constraints
+                    if rc.blocked_from_step <= at_step <= rc.blocked_until_step
+                ]
+
+        steps = _shortest_path_steps_constrained(
+            from_loc.id, to_loc.id, self._state.locations, active
+        )
+        qualifier = f" at {at_time}" if at_time else ""
+        if steps is None:
+            return ActionResult(
+                True, f"There is no open route from the {from_room} to the {to_room}{qualifier}."
+            )
+        minutes = steps * self._state.config.step_duration_minutes
+        return ActionResult(
+            True,
+            f"The shortest open route from the {from_room} to the {to_room}{qualifier} takes "
+            f"{steps} step{'s' if steps != 1 else ''} ({minutes} minutes).",
+        )
+
+    def _handle_check_route(
+        self, from_room: str = "", to_room: str = "", at_time: str = "", **_: Any
+    ) -> ActionResult:
+        """Was the direct passage between two rooms open at a given clock time?
+        at_time format: '9:30 PM'. Costs 1 action."""
+        from_loc = next(
+            (l for l in self._state.locations.values() if l.name.lower() == from_room.lower()),
+            None,
+        )
+        to_loc = next(
+            (l for l in self._state.locations.values() if l.name.lower() == to_room.lower()),
+            None,
+        )
+        if from_loc is None or to_loc is None:
+            return ActionResult(False, f"Unknown room(s): '{from_room}', '{to_room}'.")
+
+        step = _clock_str_to_step(at_time, self._state.config.world_start_hour)
+        if step is None:
+            return ActionResult(False, f"Could not parse time '{at_time}'. Use format like '9:30 PM'.")
+
+        rc_match = next(
+            (rc for rc in self._state.route_constraints
+             if rc.blocked_from_step <= step <= rc.blocked_until_step
+             and (
+                 (rc.from_location_id == from_loc.id and rc.to_location_id == to_loc.id)
+                 or (rc.from_location_id == to_loc.id and rc.to_location_id == from_loc.id)
+             )),
+            None,
+        )
+        if rc_match:
+            return ActionResult(
+                True,
+                f"The direct passage between the {from_room} and the {to_room} "
+                f"was closed at {at_time}: {rc_match.reason}.",
+            )
+        return ActionResult(
+            True,
+            f"The passage between the {from_room} and the {to_room} was open at {at_time}.",
+        )
     
     def _handle_move(
         self,
@@ -327,7 +485,7 @@ class MysteryEnvironment:
                 if obj.evidence_id: # Thong: how do we know this is the evidence?
                     ev = self._state.evidence.get(obj.evidence_id)
                     if ev and ev.state != EvidenceState.HIDDEN and ev.state != EvidenceState.DESTROYED:
-                        parts.append(f"This is evidence: {ev.description}")
+                        parts.append(f"[Evidence {ev.id}] {ev.description}")
                         self._discovered_evidence.add(ev.id)
                         return ActionResult(True, " ".join(parts), evidence_found=[ev.id])
                 return ActionResult(True, " ".join(parts))
@@ -417,16 +575,25 @@ class MysteryEnvironment:
             if self._rng.random() < prob:
                 found.append(eid)
                 self._discovered_evidence.add(eid)
-                parts.append(f"  • {ev.name}: {ev.description}")
+                parts.append(f"  • {ev.name} [{eid}]: {ev.description}")
         if not found:
             parts.append("You find nothing new of interest.")
         return ActionResult(True, "\n".join(parts), evidence_found=found)
 
 
-    def _handle_accuse(self, suspect_name: str = "", weapon_name: str = "", location_name: str = "", **_: Any) -> ActionResult:
+    def _handle_accuse(
+        self,
+        suspect_name: str = "",
+        weapon_name: str = "",
+        location_name: str = "",
+        suspect_weapon_evidence: list[str] | None = None,
+        weapon_victim_evidence: list[str] | None = None,
+        suspect_room_evidence: list[str] | None = None,
+        alibi_contradiction: dict[str, Any] | None = None,
+        **_: Any,
+    ) -> ActionResult:
         """Final accusation. Ends the episode."""
         self.is_solved = True
-        # Match suspect
         culprit = self._state.get_culprit()
         weapon = self._state.objects.get(self._state.murder_weapon_id)
         murder_loc = self._state.locations.get(self._state.murder_location_id)
@@ -434,7 +601,6 @@ class MysteryEnvironment:
         correct_suspect = culprit and culprit.full_name.lower() == suspect_name.lower()
         correct_weapon = weapon and weapon.name.lower() == weapon_name.lower()
         correct_location = murder_loc and murder_loc.name.lower() == location_name.lower()
-
         self.accusation_correct = correct_suspect and correct_weapon and correct_location
 
         details = {
@@ -443,11 +609,63 @@ class MysteryEnvironment:
             "location_correct": correct_location,
             "partial_score": sum([correct_suspect, correct_weapon, correct_location]) / 3.0,
         }
+
+        has_scoring = any([
+            suspect_weapon_evidence, weapon_victim_evidence,
+            suspect_room_evidence, alibi_contradiction,
+        ])
+        if has_scoring:
+            accused_ids = self._resolve_names_to_ids(suspect_name, weapon_name, location_name)
+            triangle = {}
+            if suspect_weapon_evidence:
+                triangle["SUSPECT_WEAPON"] = EdgeArgument(evidence_ids=suspect_weapon_evidence)
+            if weapon_victim_evidence:
+                triangle["WEAPON_VICTIM"] = EdgeArgument(evidence_ids=weapon_victim_evidence)
+            if suspect_room_evidence:
+                triangle["SUSPECT_ROOM"] = EdgeArgument(evidence_ids=suspect_room_evidence)
+
+            score = score_accusation(
+                accused_ids=accused_ids,
+                triangle=triangle,
+                state=self._state,
+                alibi_contradiction=alibi_contradiction,
+            )
+            details["score_result"] = score.to_dict()
+            details["triangle_score"] = score.triangle_score
+            details["alibi_score"] = score.alibi_score
+            details["composite_score"] = score.composite_score
+
         if self.accusation_correct:
-            obs = f"CORRECT! {culprit.full_name} committed the crime with the {weapon.name} in the {murder_loc.name}."
+            obs = (f"CORRECT! {culprit.full_name} committed the crime "
+                   f"with the {weapon.name} in the {murder_loc.name}.")
         else:
-            obs = f"INCORRECT. The true answer: {culprit.full_name if culprit else '?'} with the {weapon.name if weapon else '?'} in the {murder_loc.name if murder_loc else '?'}."
+            obs = (f"INCORRECT. The true answer: "
+                   f"{culprit.full_name if culprit else '?'} with the "
+                   f"{weapon.name if weapon else '?'} in the "
+                   f"{murder_loc.name if murder_loc else '?'}.")
+        if has_scoring:
+            obs += (f" Triangle: {score.triangle_score:.1f}/3."
+                    f" Alibi: {score.alibi_score:.2f}."
+                    f" Composite: {score.composite_score:.2f}.")
         return ActionResult(True, obs, details=details)
+
+    def _resolve_names_to_ids(
+        self, suspect_name: str, weapon_name: str, location_name: str
+    ) -> dict[str, str]:
+        result = {"suspect": "", "weapon": "", "room": ""}
+        for cid, c in self._state.characters.items():
+            if c.full_name.lower() == suspect_name.lower():
+                result["suspect"] = cid
+                break
+        for oid, o in self._state.objects.items():
+            if o.name.lower() == weapon_name.lower():
+                result["weapon"] = oid
+                break
+        for lid, l in self._state.locations.items():
+            if l.name.lower() == location_name.lower():
+                result["room"] = lid
+                break
+        return result
 
 
     def _handle_wait(self, **_: Any) -> ActionResult:
@@ -461,7 +679,7 @@ class MysteryEnvironment:
         for eid in self._discovered_evidence:
             ev = self._state.evidence.get(eid)
             if ev:
-                parts.append(f"- {ev.name} [{ev.evidence_type.name}] ({ev.state.name}): {ev.description}")
+                parts.append(f"- [{eid}] {ev.name} [{ev.evidence_type.name}] ({ev.state.name}): {ev.description}")
         return ActionResult(True, "\n".join(parts))
 
 
@@ -550,3 +768,277 @@ class MysteryEnvironment:
         self._interviewed_characters = set(session["interviewed_characters"])
         self._interview_histories = session["interview_histories"]
         self.action_history = session["action_history"]
+
+
+# ---------------------------------------------------------------------------
+# Locard triangle + alibi scoring
+# ---------------------------------------------------------------------------
+
+def score_accusation(
+    accused_ids: dict[str, str],
+    triangle: dict[str, EdgeArgument],
+    state: WorldState,
+    alibi_contradiction: dict[str, Any] | None = None,
+) -> ScoreResult:
+    """Score an accusation: correct culprit + triangle evidence + alibi contradiction.
+
+    Args:
+        accused_ids:          {"suspect": id, "weapon": id, "room": id}
+        triangle:             EdgeType.name -> EdgeArgument
+        state:                ground truth
+        alibi_contradiction:  optional dict with "claimed_location", "claimed_time",
+                              "contradiction_evidence" keys
+    """
+    result = ScoreResult()
+    murder_ts = state.murder_timestamp
+    threshold = state.freshness_threshold
+
+    # --- Score 1: Accusation ---
+    result.correct_suspect = accused_ids.get("suspect") == state.culprit_id
+    result.correct_weapon = accused_ids.get("weapon") == state.murder_weapon_id
+    result.correct_room = accused_ids.get("room") == state.murder_location_id
+    result.accusation_score = sum([
+        result.correct_suspect, result.correct_weapon, result.correct_room
+    ]) / 3.0
+
+    # --- Score 2: Locard triangle ---
+    def _score_edge(edge_type: EdgeType) -> float:
+        arg = triangle.get(edge_type.name)
+        if arg is None or not arg.evidence_ids:
+            return 0.0
+        total_cited = len(arg.evidence_ids)
+        correct_fresh = 0
+        correct_stale = 0
+        for eid in arg.evidence_ids:
+            ev = state.evidence.get(eid)
+            if ev is None or ev.is_red_herring or ev.relevance is None:
+                continue
+            rel = ev.relevance
+            if rel.edge_type != edge_type:
+                continue
+            if not _relevance_matches_truth(rel, edge_type, state):
+                continue
+            if abs(rel.contact_timestamp - murder_ts) < threshold:
+                correct_fresh += 1
+            else:
+                correct_stale += 1
+        if correct_fresh > 0:
+            return correct_fresh / total_cited
+        elif correct_stale > 0:
+            return 0.5 * (correct_stale / total_cited)
+        return 0.0
+
+    result.suspect_weapon_score = _score_edge(EdgeType.SUSPECT_WEAPON)
+    result.weapon_victim_score = _score_edge(EdgeType.WEAPON_VICTIM)
+    result.suspect_room_score = _score_edge(EdgeType.SUSPECT_ROOM)
+    result.triangle_score = (
+        result.suspect_weapon_score
+        + result.weapon_victim_score
+        + result.suspect_room_score
+    )
+
+    # --- Score 3: Alibi verification ---
+    if alibi_contradiction:
+        result.alibi_cited = bool(
+            alibi_contradiction.get("claimed_location")
+            and alibi_contradiction.get("claimed_time")
+        )
+        result.contradiction_found = bool(
+            alibi_contradiction.get("contradiction_evidence", "")
+        )
+        result.contradiction_valid = _validate_alibi_contradiction(
+            accused_ids.get("suspect", ""), alibi_contradiction, state
+        )
+        result.alibi_score = sum([
+            result.alibi_cited,
+            result.contradiction_found,
+            result.contradiction_valid,
+        ]) / 3.0
+
+    # --- Composite ---
+    result.composite_score = (
+        0.40 * result.accusation_score
+        + 0.40 * (result.triangle_score / 3.0)
+        + 0.20 * result.alibi_score
+    )
+    return result
+
+
+def _relevance_matches_truth(
+    rel: EdgeRelevance, edge_type: EdgeType, state: WorldState
+) -> bool:
+    if edge_type == EdgeType.SUSPECT_WEAPON:
+        return state.culprit_id in rel.subject_ids and state.murder_weapon_id in rel.subject_ids
+    elif edge_type == EdgeType.WEAPON_VICTIM:
+        return state.murder_weapon_id in rel.subject_ids and state.victim_id in rel.subject_ids
+    elif edge_type == EdgeType.SUSPECT_ROOM:
+        return state.culprit_id in rel.subject_ids and state.murder_location_id in rel.subject_ids
+    return False
+
+
+def _is_blocked(
+    from_id: str,
+    to_id: str,
+    active_constraints: list[RouteConstraint],
+) -> bool:
+    return any(
+        (rc.from_location_id == from_id and rc.to_location_id == to_id)
+        or (rc.from_location_id == to_id and rc.to_location_id == from_id)
+        for rc in active_constraints
+    )
+
+
+def _shortest_path_steps_constrained(
+    from_id: str,
+    to_id: str,
+    locations: dict[str, Location],
+    active_constraints: list[RouteConstraint] | None = None,
+) -> int | None:
+    """BFS respecting blocked passages. Returns steps or None if unreachable."""
+    from collections import deque
+    constraints = active_constraints or []
+    visited = {from_id}
+    queue = deque([(from_id, 0)])
+    while queue:
+        current_id, steps = queue.popleft()
+        loc = locations.get(current_id)
+        if loc is None:
+            continue
+        for adj_id in loc.adjacent_ids:
+            if _is_blocked(current_id, adj_id, constraints):
+                continue
+            if adj_id == to_id:
+                return steps + 1
+            if adj_id not in visited:
+                visited.add(adj_id)
+                queue.append((adj_id, steps + 1))
+    return None
+
+
+def _has_path_avoiding(
+    from_id: str,
+    to_id: str,
+    avoid_id: str,
+    locations: dict[str, Location],
+    active_constraints: list[RouteConstraint] | None = None,
+) -> bool:
+    """True if a path exists from→to that never enters avoid_id."""
+    from collections import deque
+    constraints = active_constraints or []
+    visited = {from_id, avoid_id}
+    queue = deque([from_id])
+    while queue:
+        current_id = queue.popleft()
+        loc = locations.get(current_id)
+        if loc is None:
+            continue
+        for adj_id in loc.adjacent_ids:
+            if _is_blocked(current_id, adj_id, constraints):
+                continue
+            if adj_id == to_id:
+                return True
+            if adj_id not in visited:
+                visited.add(adj_id)
+                queue.append(adj_id)
+    return False
+
+
+def _clock_str_to_step(clock_str: str, world_start_hour: int) -> int | None:
+    """Parse '9:30 PM' -> step index. Returns None if unparseable."""
+    import re
+    m = re.match(r"(\d{1,2}):(\d{2})\s*(AM|PM)?", clock_str.strip(), re.IGNORECASE)
+    if not m:
+        return None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    meridiem = (m.group(3) or "").upper()
+    if meridiem == "PM" and hour != 12:
+        hour += 12
+    elif meridiem == "AM" and hour == 12:
+        hour = 0
+    total_minutes = hour * 60 + minute
+    start_minutes = world_start_hour * 60
+    delta = total_minutes - start_minutes
+    if delta < 0:
+        delta += 24 * 60
+    return delta // 30
+
+
+def _step_to_clock_str(step: int, world_start_hour: int) -> str:
+    """Convert step index to '9:30 PM' string."""
+    total_minutes = world_start_hour * 60 + step * 30
+    total_minutes %= 24 * 60
+    hour, minute = divmod(total_minutes, 60)
+    meridiem = "AM" if hour < 12 else "PM"
+    display_hour = hour % 12 or 12
+    return f"{display_hour}:{minute:02d} {meridiem}"
+
+
+def _validate_alibi_contradiction(
+    suspect_id: str,
+    contradiction: dict[str, Any],
+    state: WorldState,
+) -> bool:
+    """Check that the agent's cited contradiction is logically valid.
+
+    Type A (one alibi claim): suspect claims to be at location X at murder_step,
+    but X is not the murder location. Valid when the claim is at murder_step and
+    the location differs — a witness or physical evidence at the crime scene
+    disproves the claim.
+
+    Type B (two alibi claims): murder_step falls between the two claims, and every
+    open route from the before-location to the after-location passes through the
+    murder location at exactly murder_step.
+    """
+    suspect = state.characters.get(suspect_id)
+    if not suspect or not suspect.alibi_claims:
+        return False
+
+    murder_step = state.murder_step
+    murder_loc_id = state.murder_location_id
+    active_constraints = [
+        rc for rc in state.route_constraints
+        if rc.blocked_from_step <= murder_step <= rc.blocked_until_step
+    ]
+
+    def _find_loc(name: str) -> Location | None:
+        return next(
+            (l for l in state.locations.values() if l.name.lower() == name.lower()),
+            None,
+        )
+
+    # --- Type A ---
+    if len(suspect.alibi_claims) == 1:
+        claim = suspect.alibi_claims[0]
+        if claim.step != murder_step:
+            return False
+        claimed_loc = _find_loc(claim.location_name)
+        if claimed_loc is None:
+            return False
+        return claimed_loc.id != murder_loc_id
+
+    # --- Type B ---
+    if len(suspect.alibi_claims) >= 2:
+        before = min(suspect.alibi_claims, key=lambda a: a.step)
+        after = max(suspect.alibi_claims, key=lambda a: a.step)
+        if not (before.step < murder_step < after.step):
+            return False
+        before_loc = _find_loc(before.location_name)
+        after_loc = _find_loc(after.location_name)
+        if before_loc is None or after_loc is None:
+            return False
+        # No open path from before→after that avoids the murder location
+        can_avoid = _has_path_avoiding(
+            before_loc.id, after_loc.id, murder_loc_id,
+            state.locations, active_constraints,
+        )
+        if can_avoid:
+            return False
+        # Timing: before_step + travel_to_murder == murder_step
+        steps_to_murder = _shortest_path_steps_constrained(
+            before_loc.id, murder_loc_id, state.locations, active_constraints
+        )
+        if steps_to_murder is None:
+            return False
+        return before.step + steps_to_murder == murder_step
+
+    return False

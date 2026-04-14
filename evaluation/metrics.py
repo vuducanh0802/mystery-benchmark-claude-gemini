@@ -33,6 +33,22 @@ class EpisodeMetrics:
     location_correct: bool = False
     partial_score: float = 0.0      # fraction of (suspect, weapon, location) correct
 
+    # --- Locard triangle ---
+    accusation_score: float = 0.0
+    triangle_score: float = 0.0
+    suspect_weapon_score: float = 0.0
+    weapon_victim_score: float = 0.0
+    suspect_room_score: float = 0.0
+
+    # --- Alibi verification ---
+    alibi_cited: bool = False
+    contradiction_found: bool = False
+    contradiction_valid: bool = False
+    alibi_score: float = 0.0
+
+    # --- Composite ---
+    composite_score: float = 0.0
+
     # --- Belief accuracy ---
     # Tracked at each step: was the top belief the ground truth?
     belief_accuracy_trace: list[float] = field(default_factory=list)
@@ -78,6 +94,16 @@ class EpisodeMetrics:
             "action_efficiency": self.action_efficiency,
             "total_steps": self.total_steps,
             "event_count": self.event_count,
+            "accusation_score": self.accusation_score,
+            "triangle_score": self.triangle_score,
+            "suspect_weapon_score": self.suspect_weapon_score,
+            "weapon_victim_score": self.weapon_victim_score,
+            "suspect_room_score": self.suspect_room_score,
+            "alibi_cited": self.alibi_cited,
+            "contradiction_found": self.contradiction_found,
+            "contradiction_valid": self.contradiction_valid,
+            "alibi_score": self.alibi_score,
+            "composite_score": self.composite_score,
         }
 
 
@@ -173,6 +199,9 @@ class AggregateMetrics:
     mean_tokens: float = 0.0
     mean_action_efficiency: float = 0.0
     std_solve_rate: float = 0.0
+    mean_triangle_score: float = 0.0
+    mean_alibi_score: float = 0.0
+    mean_composite_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -185,6 +214,9 @@ class AggregateMetrics:
             "mean_tokens": round(self.mean_tokens, 1),
             "mean_action_efficiency": round(self.mean_action_efficiency, 4),
             "std_solve_rate": round(self.std_solve_rate, 4),
+            "mean_triangle_score": round(self.mean_triangle_score, 4),
+            "mean_alibi_score": round(self.mean_alibi_score, 4),
+            "mean_composite_score": round(self.mean_composite_score, 4),
         }
 
 
@@ -206,5 +238,8 @@ def aggregate_metrics(episodes: list[EpisodeMetrics], level: int) -> AggregateMe
         mean_tokens=sum(e.total_tokens for e in level_eps) / n,
         mean_action_efficiency=sum(e.action_efficiency for e in level_eps) / n,
         std_solve_rate=math.sqrt(solve_rate * (1 - solve_rate) / n) if n > 1 else 0.0,
+        mean_triangle_score=sum(e.triangle_score for e in level_eps) / n,
+        mean_alibi_score=sum(e.alibi_score for e in level_eps) / n,
+        mean_composite_score=sum(e.composite_score for e in level_eps) / n,
     )
     return agg
