@@ -66,6 +66,9 @@ class OraclePlan:
 # Oracle agent
 # ---------------------------------------------------------------------------
 
+_MAX_SEARCHES_PER_TARGET = 10  # safety cap; avoids burning the whole budget on one stubborn piece
+
+
 class OracleAgent(BaseAgent):
     """
     Deterministic calibration agent.
@@ -77,8 +80,8 @@ class OracleAgent(BaseAgent):
         super().__init__(agent_id)
         self._env: MysteryEnvironment | None = None
         self._plan: OraclePlan | None = None
-        self._action_queue: list[tuple[AgentAction, dict[str, Any]]] = []
-        self._done: bool = False
+        # Per-evidence search attempt counter — stops wasting actions once evidence is found
+        self._search_attempts: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -87,7 +90,7 @@ class OracleAgent(BaseAgent):
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:  # type: ignore[override]
         self._env = env
         self._plan = self._build_plan()
-        self._action_queue = self._compile_action_queue()
+        self._search_attempts = {}
         # Set beliefs to ground truth immediately (oracle is omniscient)
         state = env.state
         culprit = state.get_culprit()
@@ -101,13 +104,86 @@ class OracleAgent(BaseAgent):
             self.belief_state.location_probs = {murder_loc.name: 1.0}
 
     def decide_action(self, observation: str) -> tuple[AgentAction, dict[str, Any]]:
-        if self._action_queue:
-            return self._action_queue.pop(0)
-        # If queue is empty (shouldn't happen in normal flow), WAIT
-        return AgentAction.WAIT, {}
+        """
+        Dynamic action selection — checks live discovery state on every call.
+
+        This avoids the static-queue problem where all search slots are emitted
+        upfront: as soon as an evidence item is found (possibly alongside others
+        in a single SEARCH), this method skips straight to the next target.
+        """
+        env = self._env
+        assert env is not None
+        plan = self._plan
+        assert plan is not None
+
+        discovered = env._discovered_evidence
+
+        # All needed evidence collected → accuse
+        needed = {
+            t.evidence_id
+            for t in (plan.sw_target, plan.wv_target, plan.sr_target)
+            if t is not None
+        }
+        if needed.issubset(discovered):
+            return self._make_accuse_action()
+
+        # Follow the pre-planned visit order; skip locations whose targets are all done
+        for loc_id in plan.visit_order:
+            pending = [
+                t for t in (plan.sw_target, plan.wv_target, plan.sr_target)
+                if t is not None
+                and t.location_id == loc_id
+                and t.evidence_id not in discovered
+                and self._search_attempts.get(t.evidence_id, 0) < _MAX_SEARCHES_PER_TARGET
+            ]
+            if not pending:
+                continue
+
+            target = pending[0]
+
+            # Navigate one hop toward the target location if not already there
+            if env.agent_location_id != target.location_id:
+                path = self._bfs_path(env.agent_location_id, target.location_id)
+                if path:
+                    loc = env.state.locations.get(path[0])
+                    if loc:
+                        return AgentAction.MOVE, {"target_location": loc.name}
+
+            # At the right location — attempt discovery
+            if target.object_name:
+                # Deterministic: linked object is always present and reveals evidence
+                return AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}
+            else:
+                # Probabilistic search; increment counter so we don't loop forever
+                self._search_attempts[target.evidence_id] = (
+                    self._search_attempts.get(target.evidence_id, 0) + 1
+                )
+                return AgentAction.SEARCH_FOR_EVIDENCE, {}
+
+        # All targets either found or exhausted their search budget → accuse
+        return self._make_accuse_action()
 
     def update_beliefs(self, observation: str) -> None:
         pass  # Oracle beliefs are set at initialization
+
+    def _make_accuse_action(self) -> tuple[AgentAction, dict[str, Any]]:
+        """Assemble the ACCUSE kwargs from the plan."""
+        plan = self._plan
+        assert plan is not None
+        kwargs: dict[str, Any] = {
+            "suspect_name": plan.culprit_name,
+            "weapon_name": plan.weapon_name,
+            "location_name": plan.location_name,
+        }
+        if plan.sw_target:
+            kwargs["suspect_weapon_evidence"] = [plan.sw_target.evidence_id]
+        if plan.wv_target:
+            kwargs["weapon_victim_evidence"] = [plan.wv_target.evidence_id]
+        if plan.sr_target:
+            kwargs["suspect_room_evidence"] = [plan.sr_target.evidence_id]
+        if plan.alibi_contradiction:
+            kwargs["alibi_contradiction"] = plan.alibi_contradiction
+        return AgentAction.ACCUSE, kwargs
 
     # ------------------------------------------------------------------
     # Plan building (pure ground-truth reasoning, no game API calls)
@@ -283,75 +359,6 @@ class OracleAgent(BaseAgent):
                     visited.add(adj_id)
                     queue.append((adj_id, new_path))
         return []  # unreachable
-
-    # ------------------------------------------------------------------
-    # Action queue compilation
-    # ------------------------------------------------------------------
-
-    def _compile_action_queue(self) -> list[tuple[AgentAction, dict[str, Any]]]:
-        """
-        Build the full ordered action sequence from the plan.
-
-        For each evidence target:
-          1. Navigate to its location (MOVE × hops)
-          2. Discover it (EXAMINE_OBJECT or SEARCH_FOR_EVIDENCE × up to 5)
-        Then ACCUSE.
-        """
-        env = self._env
-        assert env is not None
-        plan = self._plan
-        assert plan is not None
-
-        queue: list[tuple[AgentAction, dict[str, Any]]] = []
-        current_loc_id = env.agent_location_id
-
-        # Group targets by location visit order
-        targets_by_loc: dict[str, list[_EvidenceTarget]] = {}
-        for t in (plan.sw_target, plan.wv_target, plan.sr_target):
-            if t is not None:
-                targets_by_loc.setdefault(t.location_id, []).append(t)
-
-        for loc_id in plan.visit_order:
-            # Navigate
-            if current_loc_id != loc_id:
-                path = self._bfs_path(current_loc_id, loc_id)
-                for step_loc_id in path:
-                    step_loc = env.state.locations.get(step_loc_id)
-                    if step_loc:
-                        queue.append((AgentAction.MOVE, {"target_location": step_loc.name}))
-                current_loc_id = loc_id
-
-            # Discover all evidence at this location
-            for target in targets_by_loc.get(loc_id, []):
-                if target.object_name:
-                    # Deterministic: inspect the linked object
-                    queue.append((AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}))
-                else:
-                    # Probabilistic: SEARCH up to 5 times
-                    for _ in range(5):
-                        queue.append((AgentAction.SEARCH_FOR_EVIDENCE, {}))
-
-        # ACCUSE
-        sw_ids = [plan.sw_target.evidence_id] if plan.sw_target else []
-        wv_ids = [plan.wv_target.evidence_id] if plan.wv_target else []
-        sr_ids = [plan.sr_target.evidence_id] if plan.sr_target else []
-
-        accuse_kwargs: dict[str, Any] = {
-            "suspect_name": plan.culprit_name,
-            "weapon_name": plan.weapon_name,
-            "location_name": plan.location_name,
-        }
-        if sw_ids:
-            accuse_kwargs["suspect_weapon_evidence"] = sw_ids
-        if wv_ids:
-            accuse_kwargs["weapon_victim_evidence"] = wv_ids
-        if sr_ids:
-            accuse_kwargs["suspect_room_evidence"] = sr_ids
-        if plan.alibi_contradiction:
-            accuse_kwargs["alibi_contradiction"] = plan.alibi_contradiction
-
-        queue.append((AgentAction.ACCUSE, accuse_kwargs))
-        return queue
 
     # ------------------------------------------------------------------
     # run() — convenience entry point
