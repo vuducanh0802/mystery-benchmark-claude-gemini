@@ -81,7 +81,8 @@ class WorldState:
     culprit_id: str = ""
     victim_id: str = ""
     murder_weapon_id: str = ""
-    murder_location_id: str = ""
+    murder_location_id: str = ""   # where the murder was committed
+    body_location_id: str = ""     # where the body was found (may differ)
     murder_step: int = 0
     motive: str = ""
 
@@ -111,6 +112,7 @@ class WorldState:
             "victim_id": self.victim_id,
             "murder_weapon_id": self.murder_weapon_id,
             "murder_location_id": self.murder_location_id,
+            "body_location_id": self.body_location_id,
             "murder_step": self.murder_step,
             "motive": self.motive,
         }
@@ -132,6 +134,7 @@ class WorldState:
             victim_id=d["victim_id"],
             murder_weapon_id=d["murder_weapon_id"],
             murder_location_id=d["murder_location_id"],
+            body_location_id=d.get("body_location_id", d["murder_location_id"]),
             murder_step=d["murder_step"],
             motive=d["motive"],
         )
@@ -398,7 +401,7 @@ class MysteryEnvironment:
         if loc is None:
             return ActionResult(False, "No current location.")
         found: list[str] = []
-        parts = [f"You conduct a thorough search of the {loc.name}."]
+        parts = [f"You conduct a thorough search of the {loc.name}.", "You discover:"]
         for eid, ev in self._state.evidence.items():
             if ev.location_id != loc.id:
                 continue
@@ -414,10 +417,10 @@ class MysteryEnvironment:
             if self._rng.random() < prob:
                 found.append(eid)
                 self._discovered_evidence.add(eid)
-                parts.append(f"You discover: {ev.name} - {ev.description}")
+                parts.append(f"  • {ev.name}: {ev.description}")
         if not found:
             parts.append("You find nothing new of interest.")
-        return ActionResult(True, " ".join(parts), evidence_found=found)
+        return ActionResult(True, "\n".join(parts), evidence_found=found)
 
 
     def _handle_accuse(self, suspect_name: str = "", weapon_name: str = "", location_name: str = "", **_: Any) -> ActionResult:

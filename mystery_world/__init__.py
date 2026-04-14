@@ -60,6 +60,12 @@ class ComplexityConfig:
     evidence_difficulty_max: float = 0.6   # maximum discovery difficulty
     testimony_unreliability: float = 0.0   # probability a testimonial is unreliable
 
+    # --- Crime scene realism ---
+    body_moved_prob: float = 0.0        # probability body was moved from murder location
+    body_trace_ambiguity: int = 1       # 1=room named, 2=material named, 3=vague, 4=multiple candidates
+    trail_completeness: float = 1.0     # fraction of intermediate rooms that show drag traces
+    witness_specificity: float = 1.0    # 1.0=names the room, 0.5=vague direction, 0.2=barely recalls
+
     # --- Alibi system ---
     allow_suspect_corroborators: bool = False   # whether suspects can corroborate alibis
     max_corroborators: int = 1                  # maximum corroborators per alibi
@@ -102,6 +108,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.0, evidence_difficulty_min=0.1, evidence_difficulty_max=0.3, testimony_unreliability=0.0,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.60, 1.00, 1.00, 1.00, 1.00),
+        body_moved_prob=0.0, body_trace_ambiguity=1, trail_completeness=1.0, witness_specificity=1.0,
         max_agent_actions=30,
     ),
     ComplexityLevel.EASY: ComplexityConfig(
@@ -113,6 +120,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.1, evidence_difficulty_min=0.15, evidence_difficulty_max=0.4, testimony_unreliability=0.1,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.45, 0.75, 0.90, 1.00, 1.00),
+        body_moved_prob=0.1, body_trace_ambiguity=2, trail_completeness=0.8, witness_specificity=0.8,
         max_agent_actions=40,
     ),
     ComplexityLevel.MEDIUM: ComplexityConfig(
@@ -124,6 +132,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.2, evidence_difficulty_min=0.2, evidence_difficulty_max=0.6, testimony_unreliability=0.2,
         allow_suspect_corroborators=False, max_corroborators=2, culprit_alibi_weights=(0.30, 0.50, 0.70, 0.90, 1.00),
+        body_moved_prob=0.3, body_trace_ambiguity=3, trail_completeness=0.6, witness_specificity=0.5,
         max_agent_actions=60,
     ),
     ComplexityLevel.HARD: ComplexityConfig(
@@ -135,6 +144,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.35, evidence_difficulty_min=0.3, evidence_difficulty_max=0.7, testimony_unreliability=0.3,
         allow_suspect_corroborators=True, max_corroborators=2, culprit_alibi_weights=(0.20, 0.35, 0.55, 0.80, 1.00),
+        body_moved_prob=0.5, body_trace_ambiguity=4, trail_completeness=0.4, witness_specificity=0.3,
         max_agent_actions=80, reactive_events=True,
     ),
     ComplexityLevel.EXPERT: ComplexityConfig(
@@ -146,6 +156,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.5, evidence_difficulty_min=0.3, evidence_difficulty_max=0.8, testimony_unreliability=0.4,
         allow_suspect_corroborators=True, max_corroborators=3, culprit_alibi_weights=(0.10, 0.20, 0.40, 0.70, 1.00),
+        body_moved_prob=0.7, body_trace_ambiguity=4, trail_completeness=0.2, witness_specificity=0.2,
         max_agent_actions=120, reactive_events=True,
     ),
 }
@@ -214,4 +225,23 @@ class AssetPool:
         "impulsive", "charming", "bitter", "distracted", "cunning",
     ])
 
+    room_materials: list[tuple[str, str]] = field(default_factory=lambda: [
+        # (specific_material, vague_description)
+        ("fine coal dust",        "dark mineral powder"),
+        ("pale sawdust",          "pale organic residue"),
+        ("fireplace ash",         "grey ash residue"),
+        ("iron filings",          "dark metallic particles"),
+        ("chalk dust",            "white mineral powder"),
+        ("dried mud",             "earthy sediment"),
+        ("tobacco ash",           "grey organic residue"),
+        ("plaster dust",          "white mineral dust"),
+        ("chemical residue",      "acrid chemical traces"),
+        ("wine stains",           "dark organic residue"),
+        ("candle wax drippings",  "pale waxy residue"),
+        ("fine sand",             "pale mineral granules"),
+        ("wood shavings",         "pale organic residue"),
+        ("damp moss",             "green organic matter"),
+        ("oil stains",            "dark oily residue"),
+        ("printer's ink",         "dark liquid stains"),
+    ])
 DEFAULT_ASSET_POOL = AssetPool()

@@ -1541,6 +1541,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "numpy" },
     { name = "openai" },
     { name = "pyyaml" },
     { name = "structlog" },
@@ -1554,6 +1555,7 @@ npc-llm = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.94.0" },
+    { name = "numpy", specifier = ">=2.2.6" },
     { name = "openai", specifier = ">=2.31.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "structlog", specifier = ">=25.5.0" },

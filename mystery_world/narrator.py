@@ -170,8 +170,9 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
     state = env.state
     victim = state.get_victim()
     victim_name = victim.full_name if victim else "the victim"
-    murder_loc = state.locations.get(state.murder_location_id)
-    loc_name = murder_loc.name if murder_loc else "an unknown location"
+    body_loc_id = state.body_location_id or state.murder_location_id
+    body_loc = state.locations.get(body_loc_id)
+    loc_name = body_loc.name if body_loc else "an unknown location"
 
     suspects = [
         c for c in state.characters.values()

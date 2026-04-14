@@ -43,6 +43,7 @@ class Location:
     characters_here: list[str] = field(default_factory=list)  # character IDs
     is_locked: bool = False
     weather_exposed: bool = False  # outdoor locations affected by weather
+    material_signature: str = ""   # dominant trace material found in this room
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)

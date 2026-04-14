@@ -76,6 +76,16 @@ def _generate_locations(
         if b not in locations[a].adjacent_ids:
             locations[a].adjacent_ids.append(b)
             locations[b].adjacent_ids.append(a)
+
+    # Assign a unique room material to each location (used for crime-scene convergent clues)
+    mat_indices = list(range(len(pool.room_materials)))
+    rng.shuffle(mat_indices)
+    for i, lid in enumerate(loc_ids):
+        specific, vague = pool.room_materials[mat_indices[i % len(pool.room_materials)]]
+        locations[lid].material_signature = specific
+        if config.body_moved_prob > 0.0:
+            locations[lid].description += f" A faint trace of {vague} lingers here."
+
     return locations
 
 
@@ -741,6 +751,161 @@ def verify_solvability(state: WorldState) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Crime-scene convergent clue generation
+# ---------------------------------------------------------------------------
+
+def _bfs_path(
+    start_id: str,
+    end_id: str,
+    locations: dict[str, Location],
+) -> list[str]:
+    """BFS shortest path (inclusive) between two location IDs. Returns [] if unreachable."""
+    from collections import deque
+    if start_id == end_id:
+        return [start_id]
+    queue: deque[list[str]] = deque([[start_id]])
+    visited: set[str] = {start_id}
+    while queue:
+        path = queue.popleft()
+        for nbr in locations.get(path[-1], Location()).adjacent_ids:
+            if nbr == end_id:
+                return path + [nbr]
+            if nbr not in visited:
+                visited.add(nbr)
+                queue.append(path + [nbr])
+    return []
+
+
+def _generate_crime_scene_clues(
+    config: ComplexityConfig,
+    rng: np.random.Generator,
+    pool: AssetPool,
+    locations: dict[str, Location],
+    characters: dict[str, Character],
+    murder_location_id: str,
+    body_location_id: str,
+) -> dict[str, Evidence]:
+    """
+    Generate 3 convergent clue types that let the agent deduce the true murder location
+    even when the body was moved:
+
+    1. Body trace  — room material found on/near the victim
+    2. Drag trail  — scuff marks in intermediate rooms along the drag path
+    3. Testimony   — an NPC near the murder room heard a disturbance
+    """
+    evidence: dict[str, Evidence] = {}
+    murder_loc = locations[murder_location_id]
+
+    specific_material = murder_loc.material_signature
+    vague_material = next(
+        (v for s, v in pool.room_materials if s == specific_material),
+        "unknown residue",
+    )
+
+    # 1. Body trace
+    amb = config.body_trace_ambiguity
+    if amb <= 1:
+        trace_desc = (
+            f"Traces of {specific_material} found on the victim — "
+            f"characteristic of the {murder_loc.name}."
+        )
+    elif amb == 2:
+        trace_desc = (
+            f"Traces of {specific_material} found on the victim — "
+            f"a material found in one of the estate's rooms."
+        )
+    elif amb == 3:
+        trace_desc = (
+            f"Traces of {vague_material} found on the victim — "
+            f"the exact source room is unclear."
+        )
+    else:  # amb >= 4: multiple candidate rooms share the same vague description
+        candidate_names = [murder_loc.name]
+        for lid, loc in locations.items():
+            if lid == murder_location_id:
+                continue
+            loc_vague = next(
+                (v for s, v in pool.room_materials if s == loc.material_signature), ""
+            )
+            if loc_vague == vague_material and loc.name not in candidate_names:
+                candidate_names.append(loc.name)
+        candidate_names = candidate_names[:3]
+        room_list = " or ".join(f"the {r}" for r in candidate_names)
+        trace_desc = (
+            f"Ambiguous {vague_material} residue on the victim — "
+            f"consistent with material from {room_list}."
+        )
+
+    body_trace_ev = Evidence(
+        id=_uid("ev", rng),
+        name="material trace on victim",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=body_location_id,
+        description=trace_desc,
+        discovery_difficulty=float(rng.uniform(0.1, 0.3)),
+        relevance_score=1.0,
+    )
+    evidence[body_trace_ev.id] = body_trace_ev
+
+    # 2. Drag trail through intermediate rooms
+    path = _bfs_path(murder_location_id, body_location_id, locations)
+    for room_id in path[1:-1]:  # exclude murder room and body room
+        if rng.random() > config.trail_completeness:
+            continue
+        room = locations[room_id]
+        trail_ev = Evidence(
+            id=_uid("ev", rng),
+            name=f"drag marks in the {room.name}",
+            evidence_type=EvidenceType.PHYSICAL,
+            location_id=room_id,
+            description=(
+                f"Scuff marks and faint traces suggest something heavy "
+                f"was dragged through the {room.name}."
+            ),
+            discovery_difficulty=float(rng.uniform(0.2, 0.5)),
+            relevance_score=0.8,
+        )
+        evidence[trail_ev.id] = trail_ev
+
+    # 3. NPC testimony near the murder room
+    potential_witnesses = [
+        c for c in characters.values()
+        if c.is_alive
+        and CharacterRole.VICTIM not in c.roles
+        and not c.is_culprit
+        and (
+            c.location_id == murder_location_id
+            or murder_location_id in locations.get(c.location_id, Location()).adjacent_ids
+        )
+    ]
+    if potential_witnesses:
+        witness = potential_witnesses[int(rng.integers(len(potential_witnesses)))]
+        spec = config.witness_specificity
+        if spec >= 0.8:
+            testimony = f"I heard a commotion coming from the {murder_loc.name} that evening."
+        elif spec >= 0.5:
+            testimony = (
+                "There was some kind of disturbance from that part of the house — "
+                "I cannot say exactly where."
+            )
+        else:
+            testimony = "I thought I heard something unusual, but I am not certain what or where."
+
+        testimony_ev = Evidence(
+            id=_uid("ev", rng),
+            name="overheard testimony",
+            evidence_type=EvidenceType.TESTIMONIAL,
+            location_id=witness.location_id,
+            description=f'{witness.full_name} recalls: "{testimony}"',
+            discovery_difficulty=float(rng.uniform(0.1, 0.4)),
+            relevance_score=0.7,
+        )
+        evidence[testimony_ev.id] = testimony_ev
+
+    return evidence
+
+
+# ---------------------------------------------------------------------------
 # Master generator
 # ---------------------------------------------------------------------------
 
@@ -792,6 +957,17 @@ def generate_mystery(
         murder_step = int(rng.integers(1, max(2, config.num_time_steps // 2)))
         motive = culprit.motive or "unknown"
 
+        # 3b. Body location — may differ from murder location at higher difficulties
+        if (
+            config.body_moved_prob > 0.0
+            and rng.random() < config.body_moved_prob
+            and len(location_ids) > 1
+        ):
+            other_locs = [l for l in location_ids if l != murder_location_id]
+            body_location_id = str(rng.choice(other_locs))
+        else:
+            body_location_id = murder_location_id
+
         # 4. Timeline
         timeline = _generate_timeline(
             config, rng, characters, locations,
@@ -804,6 +980,14 @@ def generate_mystery(
             culprit.id, victim.id, suspect_ids,
             murder_weapon_id, murder_location_id, locations
         )
+
+        # 5b. Crime-scene convergent clues when body was moved
+        if body_location_id != murder_location_id:
+            cs_evidence = _generate_crime_scene_clues(
+                config, rng, pool, locations, characters,
+                murder_location_id, body_location_id,
+            )
+            evidence.update(cs_evidence)
 
         # 6. Alibis
         _generate_alibis(config, rng, characters, timeline, culprit.id, murder_step)
@@ -840,6 +1024,7 @@ def generate_mystery(
             victim_id=victim.id,
             murder_weapon_id=murder_weapon_id,
             murder_location_id=murder_location_id,
+            body_location_id=body_location_id,
             murder_step=murder_step,
             motive=motive,
         )
