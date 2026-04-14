@@ -114,10 +114,10 @@ export GOOGLE_API_KEY="..."             # Gemini agents
 
 ```bash
 # Random MEDIUM case
-uv run scripts/play.py --npc-url http://localhost:8123/v1 --npc-model Qwen/Qwen3.5-27B
+uv run scripts/play.py --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
 
 # Choose difficulty and seed
-uv run scripts/play.py --level EASY --seed 42 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
+uv run scripts/play.py --level TRIVIAL --seed 42 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
 
 # Load a saved world file
 uv run scripts/play.py --load data/benchmark_v1/level_1/instance_10042.json
@@ -343,7 +343,7 @@ Lying is deterministically controlled from ground-truth flags — the LLM has no
 | `char.is_culprit == True` | Deny any involvement; claim your alibi |
 | `alibi_corroboration_is_genuine == False` | Confirm the culprit was with you (false alibi) |
 | `char.alibi_has_gap == True` | (no special instruction — honest but incomplete) |
-| Otherwise | (no instruction — fully truthful NPC) |
+| Otherwise | (no instruction — fully truthful NPC|
 
 The LLM generates fluent natural-language dialogue within these constraints. The agent cannot read these flags and must infer deception from logical inconsistencies.
 
