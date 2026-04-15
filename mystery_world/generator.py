@@ -48,6 +48,16 @@ from mystery_world.world import WorldState
 def _uid(prefix: str, rng: np.random.Generator) -> str:
     return f"{prefix}_{rng.integers(100000, 999999)}"
 
+# Neutral-sounding names for objects that host evidence. These must NOT hint
+# that evidence is present.
+_NEUTRAL_HOST_OBJECTS = [
+    "side table", "coat rack", "worn rug", "window ledge",
+    "fireplace mantel", "writing desk", "umbrella stand",
+    "wooden stool", "wall mirror", "storage trunk",
+    "armchair", "floor lamp", "serving tray", "hat stand",
+    "porcelain vase", "shelf of books", "old radiator",
+    "heavy curtain", "wicker basket", "footstool",
+]
 
 # ---------------------------------------------------------------------------
 # Surface label helper (Locard)
@@ -462,25 +472,63 @@ def _generate_evidence_and_objects(
             ),
         )
 
-    # --- Testimonial evidence ---
-    for sid in suspect_ids:
-        if sid == culprit_id:
-            continue
-        eid = _uid("ev", rng)
-        reliable = rng.random() >= config.testimony_unreliability
-        evidence[eid] = Evidence(
-            id=eid, name="testimony about suspect movements",
-            evidence_type=EvidenceType.TESTIMONIAL,
-            location_id=str(rng.choice(location_ids)),
+    # --- Innocent alibi evidence (SUSPECT_ELSEWHERE) ---
+    # Per innocent: one physical trace in a non-murder alibi room, naming a
+    # corroborator. Agent must EXAMINE the trace AND TALK_TO the corroborator
+    # for the elimination to count (enforced in scoring).
+    non_murder_locs = [lid for lid in location_ids if lid != murder_location_id]
+    physical_alibi_templates = [
+        ("coat hanging on the rack",          "A coat belonging to {name}, left here. {corr} was seen with them here at the time."),
+        ("signed visitor register entry",     "The visitor register shows {name} signed in, countersigned by {corr}."),
+        ("half-finished cup of tea",          "A cup recently used by {name}. {corr} recalls sharing tea with them here."),
+        ("personal pocket watch left behind", "A pocket watch engraved with {name}'s initials. {corr} handed it back to them here."),
+        ("reading glasses on the table",      "Reading glasses belonging to {name}. {corr} noticed them leave the glasses here."),
+        ("umbrella in the stand",             "An umbrella left here by {name}. {corr} helped them stow it."),
+    ]
+    for i, sid in enumerate(non_culprit_suspects):
+        if not non_murder_locs:
+            break
+        alibi_room_id = str(rng.choice(non_murder_locs))
+        innocent = characters[sid]
+
+        # Prefer another innocent suspect as corroborator; fall back to a
+        # bystander NPC (INNOCENT + WITNESS, not SUSPECT) for small cases
+        # (e.g. TRIVIAL has only 1 innocent suspect).
+        corr_candidates = [
+            c for c in suspect_ids
+            if c != sid and c != culprit_id and c != victim_id
+        ]
+        if not corr_candidates:
+            corr_candidates = [
+                cid for cid, ch in characters.items()
+                if CharacterRole.INNOCENT in ch.roles
+                and CharacterRole.SUSPECT not in ch.roles
+                and cid != victim_id
+            ]
+        corroborator_id = (
+            str(rng.choice(corr_candidates)) if corr_candidates else ""
+        )
+        corroborator_name = (
+            characters[corroborator_id].full_name if corroborator_id else "someone"
+        )
+
+        t_name, t_desc = physical_alibi_templates[i % len(physical_alibi_templates)]
+        phys_eid = _uid("ev", rng)
+        evidence[phys_eid] = Evidence(
+            id=phys_eid, name=t_name,
+            evidence_type=EvidenceType.PHYSICAL,
+            location_id=alibi_room_id,
             linked_character_id=sid,
-            description="A witness account regarding a suspect's whereabouts.",
+            corroborator_id=corroborator_id or None,
+            description=t_desc.format(
+                name=innocent.full_name, corr=corroborator_name
+            ),
             discovery_difficulty=_sample_difficulty(),
-            is_reliable=reliable,
             relevance=EdgeRelevance(
-                edge_type=EdgeType.SUSPECT_ROOM,
-                subject_ids=[sid, str(rng.choice(location_ids))],
+                edge_type=EdgeType.SUSPECT_ELSEWHERE,
+                subject_ids=[sid, alibi_room_id],
                 contact_timestamp=murder_ts,
-                surface_label=TemporalLabel.AMBIGUOUS,
+                surface_label=_label(murder_ts),
             ),
         )
 
@@ -527,13 +575,38 @@ def _generate_evidence_and_objects(
             ),
         )
 
-    # --- Generic objects ---
-    obj_names = list(rng.choice(
+    # --- Link every evidence item to a host object ---
+    # 1. Collect evidence that already has a host
+    hosted_eids: set[str] = {
+        obj.evidence_id for obj in objects.values() if obj.evidence_id
+    }
+
+    # 2. For each unhosted evidence, create a neutral host in its location
+    neutral_names = list(rng.permutation(_NEUTRAL_HOST_OBJECTS))
+    neutral_idx = 0
+    for eid, ev in evidence.items():
+        if eid in hosted_eids:
+            continue
+        obj_name = neutral_names[neutral_idx % len(neutral_names)]
+        neutral_idx += 1
+        oid = _uid("obj", rng)
+        objects[oid] = WorldObject(
+            id=oid,
+            name=obj_name,
+            description=f"A {obj_name} sitting here.",
+            location_id=ev.location_id,
+            portable=False,
+            evidence_id=eid,
+        )
+        hosted_eids.add(eid)
+
+    # 3. Add decoy objects (no evidence) to fill rooms up to the per-room cap
+    decoy_names = list(rng.choice(
         pool.object_templates,
         size=min(config.num_objects, len(pool.object_templates)),
         replace=False,
     ))
-    for oname in obj_names:
+    for oname in decoy_names:
         oid = _uid("obj", rng)
         objects[oid] = WorldObject(
             id=oid, name=str(oname), description=f"A {oname} lying here.",
@@ -1186,6 +1259,14 @@ def generate_mystery(
             location_id=body_location_id,
             portable=False,
         )
+        # Link crime-scene evidence to the body object where possible
+        if body_location_id != murder_location_id:
+            for eid, ev in cs_evidence.items():
+                if ev.location_id == body_location_id:
+                    hosted = any(o.evidence_id == eid for o in objects.values())
+                    if not hosted:
+                        objects[body_obj_id].evidence_id = eid
+                        break
         victim.location_id = body_location_id
 
         # 6. Alibis
@@ -1194,15 +1275,28 @@ def generate_mystery(
         # 7. Witnesses
         _assign_witnesses(characters, timeline, rng)
 
-        # 8. Populate location manifests
+        # Populate location manifests (characters + objects, with per-room cap)
         for cid, char in characters.items():
             loc = locations.get(char.location_id)
             if loc and cid not in loc.characters_here:
                 loc.characters_here.append(cid)
-        
-        for oid, obj in objects.items():
-            loc = locations.get(obj.location_id)
+
+        evidence_obj_ids = [oid for oid, o in objects.items() if o.evidence_id]
+        decoy_obj_ids = [oid for oid, o in objects.items() if not o.evidence_id]
+
+        # Evidence-bearing objects are always placed (they're required for scoring)
+        for oid in evidence_obj_ids:
+            loc = locations.get(objects[oid].location_id)
             if loc and oid not in loc.objects_here:
+                loc.objects_here.append(oid)
+
+        # Decoys fill up to max_objects_per_room
+        for oid in decoy_obj_ids:
+            loc = locations.get(objects[oid].location_id)
+            if (
+                loc and oid not in loc.objects_here
+                and len(loc.objects_here) < config.max_objects_per_room
+            ):
                 loc.objects_here.append(oid)
 
         # 9. Initial weather

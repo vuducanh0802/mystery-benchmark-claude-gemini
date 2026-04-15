@@ -48,7 +48,6 @@ class AgentAction(Enum):
     EXAMINE_LOCATION = auto()               # look around current room
     EXAMINE_OBJECT = auto()               # inspect a specific object
     TALK_TO = auto()               # interrogate a character
-    SEARCH_FOR_EVIDENCE = auto()               # active search (higher chance of finding hidden clues)
     ACCUSE = auto()               # make final accusation
     WAIT = auto()               # pass one time step
     CHECK_INVENTORY = auto()               # review collected clues
@@ -201,7 +200,11 @@ class MysteryEnvironment:
         self.accusation_correct: bool | None = None
         self._discovered_evidence: set[str] = set()
         self._interviewed_characters: set[str] = set()
+        self._last_score_result: dict[str, Any] | None = None
         self._interview_histories: dict[str, list[dict[str, str]]] = {}
+        self._examine_total: int = 0
+        self._examine_hit: int = 0
+        self._revealed_alibi_claims: list[dict[str, str]] = []
         self._npc_responder: NPCResponder | None = None
 
         # Place agent at a default starting location
@@ -323,7 +326,6 @@ class MysteryEnvironment:
             AgentAction.EXAMINE_LOCATION: self._handle_examine_location,
             AgentAction.EXAMINE_OBJECT: self._handle_examine_object,
             AgentAction.TALK_TO: self._handle_talk,
-            AgentAction.SEARCH_FOR_EVIDENCE: self._handle_search,
             AgentAction.ACCUSE: self._handle_accuse,
             AgentAction.WAIT: self._handle_wait,
             AgentAction.CHECK_INVENTORY: self._handle_inventory,
@@ -481,10 +483,12 @@ class MysteryEnvironment:
         for oid in loc.objects_here:
             obj = self._state.objects.get(oid)
             if obj and obj.name.lower() == object_name.lower():
+                self._examine_total += 1
                 parts = [f"You examine the {obj.name}. {obj.description}"]
-                if obj.evidence_id: # Thong: how do we know this is the evidence?
+                if obj.evidence_id:
                     ev = self._state.evidence.get(obj.evidence_id)
-                    if ev and ev.state != EvidenceState.HIDDEN and ev.state != EvidenceState.DESTROYED:
+                    if ev and ev.state not in (EvidenceState.HIDDEN, EvidenceState.DESTROYED):
+                        self._examine_hit += 1
                         parts.append(f"[Evidence {ev.id}] {ev.description}")
                         self._discovered_evidence.add(ev.id)
                         return ActionResult(True, " ".join(parts), evidence_found=[ev.id])
@@ -509,8 +513,8 @@ class MysteryEnvironment:
 
 
     def _generate_interview(self, char: Character, question: str = "") -> ActionResult:
-        """
-        Stateful multi-turn interview.
+        """Stateful multi-turn interview.
+
         Uses NPCResponder (LLM) when attached; deterministic fallback otherwise.
         Lying is injected from ground-truth flags — the LLM does not decide it.
         """
@@ -521,6 +525,15 @@ class MysteryEnvironment:
             self._interview_histories[cid] = []
         history = self._interview_histories[cid]
 
+        # Alibi provenance: interviewing the culprit reveals their alibi claims
+        if char.is_culprit and char.alibi_claims:
+            for claim in char.alibi_claims:
+                self._revealed_alibi_claims.append({
+                    "character": char.full_name,
+                    "location": claim.location_name,
+                    "time": claim.clock_time_str,
+                })
+
         if self._npc_responder is not None:
             response = self._npc_responder.respond(char, self._state, question, history)
             history.append({"role": "user", "content": question})
@@ -529,7 +542,9 @@ class MysteryEnvironment:
 
         return self._template_interview(char, question, history)
 
-    def _template_interview(self, char: Character, question: str, history: list[dict]) -> ActionResult:
+    def _template_interview(
+        self, char: Character, question: str, history: list[dict],
+    ) -> ActionResult:
         """Deterministic fallback used when no LLM responder is attached."""
         parts = [f'You ask {char.full_name}: "{question}"']
         if char.is_culprit:
@@ -553,34 +568,6 @@ class MysteryEnvironment:
         return ActionResult(True, " ".join(parts))
 
 
-    def _handle_search(self, **_: Any) -> ActionResult:
-        """Active search: can find hidden evidence with some probability."""
-        loc = self.get_current_location()
-        if loc is None:
-            return ActionResult(False, "No current location.")
-        found: list[str] = []
-        parts = [f"You conduct a thorough search of the {loc.name}.", "You discover:"]
-        for eid, ev in self._state.evidence.items():
-            if ev.location_id != loc.id:
-                continue
-            if ev.state == EvidenceState.DESTROYED:
-                continue
-            if eid in self._discovered_evidence:
-                continue
-            # Discovery probability = 1 - discovery_difficulty (+ bonus for active search)
-            prob = 1.0 - ev.discovery_difficulty + 0.3   # active search bonus
-            prob = max(0.1, min(1.0, prob))
-            if ev.state == EvidenceState.HIDDEN:
-                prob *= 0.5   # hidden evidence harder to find
-            if self._rng.random() < prob:
-                found.append(eid)
-                self._discovered_evidence.add(eid)
-                parts.append(f"  • {ev.name} [{eid}]: {ev.description}")
-        if not found:
-            parts.append("You find nothing new of interest.")
-        return ActionResult(True, "\n".join(parts), evidence_found=found)
-
-
     def _handle_accuse(
         self,
         suspect_name: str = "",
@@ -590,6 +577,7 @@ class MysteryEnvironment:
         weapon_victim_evidence: list[str] | None = None,
         suspect_room_evidence: list[str] | None = None,
         alibi_contradiction: dict[str, Any] | None = None,
+        eliminations: dict[str, dict[str, str]] | None = None,
         **_: Any,
     ) -> ActionResult:
         """Final accusation. Ends the episode."""
@@ -629,8 +617,16 @@ class MysteryEnvironment:
                 triangle=triangle,
                 state=self._state,
                 alibi_contradiction=alibi_contradiction,
+                revealed_alibi_claims=self._revealed_alibi_claims,
+                eliminations=eliminations,
+                discovered_evidence=self._discovered_evidence,
+                interviewed_characters=self._interviewed_characters,
+                examine_total=self._examine_total,
+                examine_hit=self._examine_hit,
             )
-            details["score_result"] = score.to_dict()
+            score_dict = score.to_dict()
+            self._last_score_result = score_dict
+            details["score_result"] = score_dict
             details["triangle_score"] = score.triangle_score
             details["alibi_score"] = score.alibi_score
             details["composite_score"] = score.composite_score
@@ -711,11 +707,15 @@ class MysteryEnvironment:
             "accusation_correct": self.accusation_correct,
             "evidence_discovered": list(self._discovered_evidence),
             "total_evidence": len(self._state.evidence),
+            "examine_total": self._examine_total,
+            "examine_hit": self._examine_hit,
             "characters_interviewed": list(self._interviewed_characters),
+            "alibi_claims_revealed": len(self._revealed_alibi_claims),
             "total_characters": len(self._state.characters),
             "steps_elapsed": self._state.current_step,
             "event_count": len(self._state.event_log),
             "action_history": self.action_history,
+            "score_result": self._last_score_result,
         }
 
     # ------------------------------------------------------------------
@@ -745,8 +745,11 @@ class MysteryEnvironment:
             "is_solved": self.is_solved,
             "accusation_correct": self.accusation_correct,
             "discovered_evidence": list(self._discovered_evidence),
+            "examine_total": self._examine_total,
+            "examine_hit": self._examine_hit,
             "interviewed_characters": list(self._interviewed_characters),
             "interview_histories": self._interview_histories,
+            "revealed_alibi_claims": self._revealed_alibi_claims,
             "action_history": self.action_history,
         }
         (directory / "session.json").write_text(json.dumps(session, indent=2))
@@ -765,8 +768,11 @@ class MysteryEnvironment:
         self.is_solved = session["is_solved"]
         self.accusation_correct = session["accusation_correct"]
         self._discovered_evidence = set(session["discovered_evidence"])
+        self._examine_total = session.get("examine_total", 0)
+        self._examine_hit = session.get("examine_hit", 0)
         self._interviewed_characters = set(session["interviewed_characters"])
         self._interview_histories = session["interview_histories"]
+        self._revealed_alibi_claims = session.get("revealed_alibi_claims", [])
         self.action_history = session["action_history"]
 
 
@@ -779,21 +785,19 @@ def score_accusation(
     triangle: dict[str, EdgeArgument],
     state: WorldState,
     alibi_contradiction: dict[str, Any] | None = None,
+    revealed_alibi_claims: list[dict[str, str]] | None = None,
+    eliminations: dict[str, dict[str, str]] | None = None,
+    discovered_evidence: set[str] | None = None,
+    interviewed_characters: set[str] | None = None,
+    examine_total: int = 0,
+    examine_hit: int = 0,
 ) -> ScoreResult:
-    """Score an accusation: correct culprit + triangle evidence + alibi contradiction.
-
-    Args:
-        accused_ids:          {"suspect": id, "weapon": id, "room": id}
-        triangle:             EdgeType.name -> EdgeArgument
-        state:                ground truth
-        alibi_contradiction:  optional dict with "claimed_location", "claimed_time",
-                              "contradiction_evidence" keys
-    """
+    """Score an accusation: accusation + triangle F1 + alibi + elimination."""
     result = ScoreResult()
     murder_ts = state.murder_timestamp
     threshold = state.freshness_threshold
 
-    # --- Score 1: Accusation ---
+    # --- Score 1: Accusation correctness ---
     result.correct_suspect = accused_ids.get("suspect") == state.culprit_id
     result.correct_weapon = accused_ids.get("weapon") == state.murder_weapon_id
     result.correct_room = accused_ids.get("room") == state.murder_location_id
@@ -801,11 +805,22 @@ def score_accusation(
         result.correct_suspect, result.correct_weapon, result.correct_room
     ]) / 3.0
 
-    # --- Score 2: Locard triangle ---
-    def _score_edge(edge_type: EdgeType) -> float:
+    # --- Score 2: Locard triangle (precision + recall → F1 per edge) ---
+    def _count_available(edge_type: EdgeType) -> int:
+        return sum(
+            1 for ev in state.evidence.values()
+            if not ev.is_red_herring
+            and ev.relevance is not None
+            and ev.relevance.edge_type == edge_type
+            and _relevance_matches_truth(ev.relevance, edge_type, state)
+            and abs(ev.relevance.contact_timestamp - murder_ts) < threshold
+        )
+
+    def _score_edge(edge_type: EdgeType) -> tuple[float, float, float]:
         arg = triangle.get(edge_type.name)
+        total_available = _count_available(edge_type)
         if arg is None or not arg.evidence_ids:
-            return 0.0
+            return (0.0, 0.0, 0.0)
         total_cited = len(arg.evidence_ids)
         correct_fresh = 0
         correct_stale = 0
@@ -822,45 +837,170 @@ def score_accusation(
                 correct_fresh += 1
             else:
                 correct_stale += 1
-        if correct_fresh > 0:
-            return correct_fresh / total_cited
-        elif correct_stale > 0:
-            return 0.5 * (correct_stale / total_cited)
-        return 0.0
+        effective_correct = correct_fresh + 0.5 * correct_stale
+        precision = effective_correct / total_cited if total_cited > 0 else 0.0
+        recall = correct_fresh / total_available if total_available > 0 else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall > 0 else 0.0
+        )
+        return (precision, recall, f1)
 
-    result.suspect_weapon_score = _score_edge(EdgeType.SUSPECT_WEAPON)
-    result.weapon_victim_score = _score_edge(EdgeType.WEAPON_VICTIM)
-    result.suspect_room_score = _score_edge(EdgeType.SUSPECT_ROOM)
-    result.triangle_score = (
-        result.suspect_weapon_score
-        + result.weapon_victim_score
-        + result.suspect_room_score
-    )
+    sw_p, sw_r, sw_f1 = _score_edge(EdgeType.SUSPECT_WEAPON)
+    wv_p, wv_r, wv_f1 = _score_edge(EdgeType.WEAPON_VICTIM)
+    sr_p, sr_r, sr_f1 = _score_edge(EdgeType.SUSPECT_ROOM)
 
-    # --- Score 3: Alibi verification ---
-    if alibi_contradiction:
-        result.alibi_cited = bool(
-            alibi_contradiction.get("claimed_location")
-            and alibi_contradiction.get("claimed_time")
+    result.suspect_weapon_precision = sw_p
+    result.suspect_weapon_recall = sw_r
+    result.suspect_weapon_score = sw_f1
+    result.weapon_victim_precision = wv_p
+    result.weapon_victim_recall = wv_r
+    result.weapon_victim_score = wv_f1
+    result.suspect_room_precision = sr_p
+    result.suspect_room_recall = sr_r
+    result.suspect_room_score = sr_f1
+    result.triangle_score = sw_f1 + wv_f1 + sr_f1
+
+    # --- Score 3: Alibi verification (provenance + evidence_id contradiction) ---
+    if alibi_contradiction and revealed_alibi_claims:
+        cited_loc = alibi_contradiction.get("claimed_location", "").lower()
+        cited_time = alibi_contradiction.get("claimed_time", "").lower()
+        cited_ev_ids = alibi_contradiction.get("contradiction_evidence", []) or []
+        if not isinstance(cited_ev_ids, list):
+            cited_ev_ids = []
+
+        claim_matches = any(
+            r["location"].lower() == cited_loc and r["time"].lower() == cited_time
+            for r in revealed_alibi_claims
         )
-        result.contradiction_found = bool(
-            alibi_contradiction.get("contradiction_evidence", "")
+
+        discovered = discovered_evidence or set()
+
+        def _alibi_ev_valid(eid: str) -> bool:
+            if eid not in discovered or eid not in state.evidence:
+                return False
+            ev = state.evidence[eid]
+            if ev.is_red_herring or ev.relevance is None:
+                return False
+            rel = ev.relevance
+            return (
+                rel.edge_type == EdgeType.SUSPECT_ROOM
+                and state.culprit_id in rel.subject_ids
+                and state.murder_location_id in rel.subject_ids
+                and abs(rel.contact_timestamp - murder_ts) < threshold
+            )
+
+        if claim_matches:
+            result.alibi_cited = True
+            result.contradiction_found = any(_alibi_ev_valid(eid) for eid in cited_ev_ids)
+            result.contradiction_valid = _validate_alibi_contradiction(
+                accused_ids.get("suspect", ""), alibi_contradiction, state
+            )
+            result.alibi_score = sum([
+                result.alibi_cited,
+                result.contradiction_found,
+                result.contradiction_valid,
+            ]) / 3.0
+
+    # --- Score 4: Elimination (SUSPECT_ELSEWHERE + corroborator interview) ---
+    if eliminations:
+        # Characters who appear only as corroborators (witnesses for someone else's
+        # alibi) but have no SUSPECT_ELSEWHERE evidence for themselves are not
+        # independent elimination targets — exclude them from the denominator.
+        # Mutual corroborators (A witnesses B and B witnesses A) both have SE
+        # evidence targeting themselves, so both stay in the denominator.
+        corroborator_ids = {
+            ev.corroborator_id
+            for ev in state.evidence.values()
+            if ev.relevance is not None
+            and ev.relevance.edge_type == EdgeType.SUSPECT_ELSEWHERE
+            and ev.corroborator_id
+        }
+        se_target_ids = {
+            cid
+            for ev in state.evidence.values()
+            if ev.relevance is not None
+            and ev.relevance.edge_type == EdgeType.SUSPECT_ELSEWHERE
+            for cid in ev.relevance.subject_ids
+        }
+        corroborator_only_ids = corroborator_ids - se_target_ids
+        total_innocents = sum(
+            1 for c in state.characters.values()
+            if c.is_alive and not c.is_culprit
+            and CharacterRole.SUSPECT in c.roles
+            and c.id not in corroborator_only_ids
         )
-        result.contradiction_valid = _validate_alibi_contradiction(
-            accused_ids.get("suspect", ""), alibi_contradiction, state
-        )
-        result.alibi_score = sum([
-            result.alibi_cited,
-            result.contradiction_found,
-            result.contradiction_valid,
-        ]) / 3.0
+        correct = 0
+        incorrect = 0
+        discovered = discovered_evidence or set()
+        interviewed = interviewed_characters or set()
+
+        for suspect_name, claim in eliminations.items():
+            char = next(
+                (c for c in state.characters.values()
+                 if c.full_name.lower() == suspect_name.lower()),
+                None,
+            )
+            if char is None or not isinstance(claim, dict):
+                continue
+
+            evidence_id = claim.get("evidence_id", "")
+            corroborator_name = claim.get("corroborator", "")
+
+            ev_valid = False
+            if (
+                evidence_id
+                and evidence_id in discovered
+                and evidence_id in state.evidence
+            ):
+                ev = state.evidence[evidence_id]
+                if (
+                    not ev.is_red_herring
+                    and ev.relevance is not None
+                    and ev.relevance.edge_type == EdgeType.SUSPECT_ELSEWHERE
+                    and char.id in ev.relevance.subject_ids
+                    and abs(ev.relevance.contact_timestamp - murder_ts) < threshold
+                ):
+                    ev_valid = True
+
+            corr_valid = False
+            if ev_valid and corroborator_name:
+                ev = state.evidence[evidence_id]
+                if ev.corroborator_id:
+                    corr_char = state.characters.get(ev.corroborator_id)
+                    if (
+                        corr_char is not None
+                        and corr_char.full_name.lower() == corroborator_name.lower()
+                        and ev.corroborator_id in interviewed
+                    ):
+                        corr_valid = True
+
+            if ev_valid and corr_valid:
+                if char.is_culprit:
+                    incorrect += 1
+                else:
+                    correct += 1
+            else:
+                if char.is_culprit:
+                    incorrect += 1
+
+        result.total_innocents = total_innocents
+        result.correct_eliminations = correct
+        result.incorrect_eliminations = incorrect
+        if total_innocents > 0:
+            result.elimination_score = max(
+                0.0, (correct - 2 * incorrect) / total_innocents
+            )
 
     # --- Composite ---
-    result.composite_score = (
-        0.40 * result.accusation_score
-        + 0.40 * (result.triangle_score / 3.0)
-        + 0.20 * result.alibi_score
+    examine_efficiency = examine_hit / max(1, examine_total) if examine_total > 0 else 1.0
+    base = (
+        0.35 * result.accusation_score
+        + 0.35 * (result.triangle_score / 3.0)
+        + 0.15 * result.alibi_score
+        + 0.15 * result.elimination_score
     )
+    result.composite_score = base * (0.8 + 0.2 * examine_efficiency)
     return result
 
 

@@ -84,9 +84,6 @@ def _parse_command(raw: str) -> tuple[AgentAction, dict] | None:
     if verb in ("examine", "inspect", "x") and rest:
         return AgentAction.EXAMINE_OBJECT, {"object_name": rest}
 
-    if verb in ("search", "s"):
-        return AgentAction.SEARCH_FOR_EVIDENCE, {}
-
     if verb in ("wait", "w"):
         return AgentAction.WAIT, {}
 

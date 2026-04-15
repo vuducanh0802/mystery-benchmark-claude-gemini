@@ -35,6 +35,7 @@ class ComplexityConfig:
     num_innocents: int = 2   # NPCs who are not suspects
     num_weapons: int = 3
     num_objects: int = 8   # total interactive objects in the world
+    max_objects_per_room: int = 5   # cap inspectable objects per room
     num_red_herrings: int = 2   # misleading clues planted by generator
 
     # --- Temporal ---
@@ -116,8 +117,8 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         evidence_ambiguity=0.0, evidence_difficulty_min=0.1, evidence_difficulty_max=0.3, testimony_unreliability=0.0,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.60, 1.00, 1.00, 1.00, 1.00),
         body_moved_prob=0.0, body_trace_ambiguity=1, trail_completeness=1.0, witness_specificity=1.0,
-        freshness_threshold=3.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=0,
-        max_agent_actions=30,
+        freshness_threshold=3.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=0, 
+        max_agent_actions=30, max_objects_per_room=4,
     ),
     ComplexityLevel.EASY: ComplexityConfig(
         num_locations=4, num_suspects=3, num_innocents=1, num_weapons=2,
@@ -130,7 +131,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.45, 0.75, 0.90, 1.00, 1.00),
         body_moved_prob=0.1, body_trace_ambiguity=2, trail_completeness=0.8, witness_specificity=0.8,
         freshness_threshold=2.5, step_duration_minutes=30, world_start_hour=20, num_route_constraints=0,
-        max_agent_actions=40,
+        max_agent_actions=40, max_objects_per_room=4,
     ),
     ComplexityLevel.MEDIUM: ComplexityConfig(
         num_locations=5, num_suspects=4, num_innocents=2, num_weapons=3,
@@ -143,7 +144,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         allow_suspect_corroborators=False, max_corroborators=2, culprit_alibi_weights=(0.30, 0.50, 0.70, 0.90, 1.00),
         body_moved_prob=0.3, body_trace_ambiguity=3, trail_completeness=0.6, witness_specificity=0.5,
         freshness_threshold=2.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=1,
-        max_agent_actions=60,
+        max_agent_actions=60, max_objects_per_room=5,
     ),
     ComplexityLevel.HARD: ComplexityConfig(
         num_locations=7, num_suspects=5, num_innocents=3, num_weapons=4,
@@ -156,7 +157,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         allow_suspect_corroborators=True, max_corroborators=2, culprit_alibi_weights=(0.20, 0.35, 0.55, 0.80, 1.00),
         body_moved_prob=0.5, body_trace_ambiguity=4, trail_completeness=0.4, witness_specificity=0.3,
         freshness_threshold=1.5, step_duration_minutes=30, world_start_hour=20, num_route_constraints=2,
-        max_agent_actions=80, reactive_events=True,
+        max_agent_actions=80, reactive_events=True, max_objects_per_room=5
     ),
     ComplexityLevel.EXPERT: ComplexityConfig(
         num_locations=10, num_suspects=7, num_innocents=4, num_weapons=5,
@@ -169,7 +170,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         allow_suspect_corroborators=True, max_corroborators=3, culprit_alibi_weights=(0.10, 0.20, 0.40, 0.70, 1.00),
         body_moved_prob=0.7, body_trace_ambiguity=4, trail_completeness=0.2, witness_specificity=0.2,
         freshness_threshold=1.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=3,
-        max_agent_actions=120, reactive_events=True,
+        max_agent_actions=120, reactive_events=True, max_objects_per_room=6,
     ),
 }
 

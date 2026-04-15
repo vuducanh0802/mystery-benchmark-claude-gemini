@@ -236,7 +236,6 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
         "  EXAMINE_LOCATION                       — look around current room",                                         
         "  EXAMINE_OBJECT <name>                  — inspect a specific object",
         "  TALK_TO <name>                         — interrogate a character",  
-        "  SEARCH_FOR_EVIDENCE                    — thorough search of current room",                                  
         "  TAKE_OBJECT <name>                     — pick up a portable object",      
         "  CHECK_INVENTORY                        — review collected evidence",                                        
         "  ANALYZE <evidence_id>                  — assess how fresh a piece of evidence is",                          

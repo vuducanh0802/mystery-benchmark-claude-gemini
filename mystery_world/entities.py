@@ -21,6 +21,7 @@ class EdgeType(Enum):
     SUSPECT_WEAPON = auto()
     WEAPON_VICTIM = auto()
     SUSPECT_ROOM = auto()
+    SUSPECT_ELSEWHERE = auto()   # innocent confirmed at non-murder room at murder time
 
 
 class TemporalLabel(Enum):
@@ -287,6 +288,7 @@ class Evidence:
     state: EvidenceState = EvidenceState.PRISTINE
     location_id: str = ""
     linked_character_id: str | None = None  # who it points to
+    corroborator_id: str | None = None   # for SUSPECT_ELSEWHERE evidence only
     is_red_herring: bool = False
     relevance_score: float = 1.0  # how useful for solving the case (0-1)
     description: str = ""
@@ -389,19 +391,31 @@ class ScoreResult:
     correct_room: bool = False
     accusation_score: float = 0.0
 
-    # Locard triangle
-    suspect_weapon_score: float = 0.0
+    # Locard triangle — per-edge precision, recall, F1
+    suspect_weapon_precision: float = 0.0
+    suspect_weapon_recall: float = 0.0
+    suspect_weapon_score: float = 0.0   # F1
+    weapon_victim_precision: float = 0.0
+    weapon_victim_recall: float = 0.0
     weapon_victim_score: float = 0.0
+    suspect_room_precision: float = 0.0
+    suspect_room_recall: float = 0.0
     suspect_room_score: float = 0.0
-    triangle_score: float = 0.0
+    triangle_score: float = 0.0         # sum of the three F1s
 
-    # Alibi verification
+    # Alibi
     alibi_cited: bool = False
     contradiction_found: bool = False
     contradiction_valid: bool = False
     alibi_score: float = 0.0
 
-    # Composite: 0.40 * accusation + 0.40 * (triangle/3) + 0.20 * alibi
+    # Elimination
+    correct_eliminations: int = 0
+    incorrect_eliminations: int = 0
+    total_innocents: int = 0
+    elimination_score: float = 0.0
+
+    # Composite
     composite_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:

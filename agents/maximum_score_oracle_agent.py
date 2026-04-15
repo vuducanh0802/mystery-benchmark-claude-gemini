@@ -48,15 +48,21 @@ class _EvidenceTarget:
 
 
 @dataclass
-class OraclePlan:
-    """Minimum proof assembled from ground truth before any game actions."""
-    sw_target: _EvidenceTarget | None = None   # SUSPECT_WEAPON edge
-    wv_target: _EvidenceTarget | None = None   # WEAPON_VICTIM edge
-    sr_target: _EvidenceTarget | None = None   # SUSPECT_ROOM edge
-    visit_order: list[str] = field(default_factory=list)  # location IDs in visit order
-    alibi_contradiction: dict[str, Any] | None = None     # passed to ACCUSE
+class _EliminationTarget:
+    suspect_name: str
+    evidence_id: str
+    corroborator_name: str
 
-    # Final accusation names (resolved from ground truth)
+
+@dataclass
+class OraclePlan:
+    sw_targets: list[_EvidenceTarget] = field(default_factory=list)
+    wv_targets: list[_EvidenceTarget] = field(default_factory=list)
+    sr_targets: list[_EvidenceTarget] = field(default_factory=list)
+    visit_order: list[str] = field(default_factory=list)
+    alibi_contradiction: dict[str, Any] | None = None
+    talk_targets: list[str] = field(default_factory=list)           # full names
+    elimination_targets: list[_EliminationTarget] = field(default_factory=list)
     culprit_name: str = ""
     weapon_name: str = ""
     location_name: str = ""
@@ -104,85 +110,94 @@ class OracleAgent(BaseAgent):
             self.belief_state.location_probs = {murder_loc.name: 1.0}
 
     def decide_action(self, observation: str) -> tuple[AgentAction, dict[str, Any]]:
-        """
-        Dynamic action selection — checks live discovery state on every call.
-
-        This avoids the static-queue problem where all search slots are emitted
-        upfront: as soon as an evidence item is found (possibly alongside others
-        in a single SEARCH), this method skips straight to the next target.
-        """
         env = self._env
-        assert env is not None
         plan = self._plan
-        assert plan is not None
+        assert env is not None and plan is not None
 
         discovered = env._discovered_evidence
+        interviewed = env._interviewed_characters
 
-        # All needed evidence collected → accuse
-        needed = {
-            t.evidence_id
-            for t in (plan.sw_target, plan.wv_target, plan.sr_target)
-            if t is not None
-        }
-        if needed.issubset(discovered):
-            return self._make_accuse_action()
-
-        # Follow the pre-planned visit order; skip locations whose targets are all done
-        for loc_id in plan.visit_order:
-            pending = [
-                t for t in (plan.sw_target, plan.wv_target, plan.sr_target)
-                if t is not None
-                and t.location_id == loc_id
-                and t.evidence_id not in discovered
-                and self._search_attempts.get(t.evidence_id, 0) < _MAX_SEARCHES_PER_TARGET
-            ]
-            if not pending:
+        # Phase 1: collect all required evidence via EXAMINE_OBJECT
+        for target in self._all_ev_targets:
+            if target.evidence_id in discovered:
                 continue
-
-            target = pending[0]
-
-            # Navigate one hop toward the target location if not already there
+            if target.object_name is None:
+                continue  # no host object — cannot discover, skip routing too
+            ev = env.state.evidence.get(target.evidence_id)
+            if ev is not None and ev.state in (
+                EvidenceState.DESTROYED, EvidenceState.HIDDEN
+            ):
+                continue  # unobtainable — skip and accuse with what we have
             if env.agent_location_id != target.location_id:
                 path = self._bfs_path(env.agent_location_id, target.location_id)
                 if path:
                     loc = env.state.locations.get(path[0])
                     if loc:
                         return AgentAction.MOVE, {"target_location": loc.name}
+            return AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}
 
-            # At the right location — attempt discovery
-            if target.object_name:
-                # Deterministic: linked object is always present and reveals evidence
-                return AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}
-            else:
-                # Probabilistic search; increment counter so we don't loop forever
-                self._search_attempts[target.evidence_id] = (
-                    self._search_attempts.get(target.evidence_id, 0) + 1
-                )
-                return AgentAction.SEARCH_FOR_EVIDENCE, {}
+        # Phase 2: TALK_TO culprit + each corroborator
+        for full_name in plan.talk_targets:
+            char = next(
+                (c for c in env.state.characters.values()
+                 if c.full_name == full_name),
+                None,
+            )
+            if char is None or char.id in interviewed:
+                continue
+            if env.agent_location_id != char.location_id:
+                path = self._bfs_path(env.agent_location_id, char.location_id)
+                if path:
+                    loc = env.state.locations.get(path[0])
+                    if loc:
+                        return AgentAction.MOVE, {"target_location": loc.name}
+            return AgentAction.TALK_TO, {
+                "character_name": full_name,
+                "question": "Where were you at the time of the murder?",
+            }
 
-        # All targets either found or exhausted their search budget → accuse
+        # Phase 3: accuse
         return self._make_accuse_action()
+
 
     def update_beliefs(self, observation: str) -> None:
         pass  # Oracle beliefs are set at initialization
 
     def _make_accuse_action(self) -> tuple[AgentAction, dict[str, Any]]:
-        """Assemble the ACCUSE kwargs from the plan."""
         plan = self._plan
         assert plan is not None
+        discovered = self._env._discovered_evidence if self._env else set()
+
+        def _cited(targets: list[_EvidenceTarget]) -> list[str]:
+            return [t.evidence_id for t in targets if t.evidence_id in discovered]
+
         kwargs: dict[str, Any] = {
             "suspect_name": plan.culprit_name,
             "weapon_name": plan.weapon_name,
             "location_name": plan.location_name,
         }
-        if plan.sw_target:
-            kwargs["suspect_weapon_evidence"] = [plan.sw_target.evidence_id]
-        if plan.wv_target:
-            kwargs["weapon_victim_evidence"] = [plan.wv_target.evidence_id]
-        if plan.sr_target:
-            kwargs["suspect_room_evidence"] = [plan.sr_target.evidence_id]
+        sw_ids = _cited(plan.sw_targets)
+        wv_ids = _cited(plan.wv_targets)
+        sr_ids = _cited(plan.sr_targets)
+        if sw_ids:
+            kwargs["suspect_weapon_evidence"] = sw_ids
+        if wv_ids:
+            kwargs["weapon_victim_evidence"] = wv_ids
+        if sr_ids:
+            kwargs["suspect_room_evidence"] = sr_ids
         if plan.alibi_contradiction:
-            kwargs["alibi_contradiction"] = plan.alibi_contradiction
+            # Update contradiction_evidence to all discovered SR ids
+            contra = dict(plan.alibi_contradiction)
+            contra["contradiction_evidence"] = sr_ids
+            kwargs["alibi_contradiction"] = contra
+        if plan.elimination_targets:
+            kwargs["eliminations"] = {
+                et.suspect_name: {
+                    "evidence_id": et.evidence_id,
+                    "corroborator": et.corroborator_name,
+                }
+                for et in plan.elimination_targets
+            }
         return AgentAction.ACCUSE, kwargs
 
     # ------------------------------------------------------------------
@@ -193,10 +208,9 @@ class OracleAgent(BaseAgent):
         env = self._env
         assert env is not None
         state = env.state
-
         plan = OraclePlan()
 
-        # Resolve names
+        # Names
         culprit = state.get_culprit()
         weapon_obj = state.objects.get(state.murder_weapon_id)
         murder_loc = state.locations.get(state.murder_location_id)
@@ -204,29 +218,104 @@ class OracleAgent(BaseAgent):
         plan.weapon_name = weapon_obj.name if weapon_obj else ""
         plan.location_name = murder_loc.name if murder_loc else ""
 
-        # Pick best evidence per triangle edge
-        plan.sw_target = self._best_evidence(EdgeType.SUSPECT_WEAPON)
-        plan.wv_target = self._best_evidence(EdgeType.WEAPON_VICTIM)
-        plan.sr_target = self._best_evidence(EdgeType.SUSPECT_ROOM)
+        # Triangle targets — collect ALL valid evidence per edge
+        plan.sw_targets = self._all_evidence_for_edge(EdgeType.SUSPECT_WEAPON)
+        plan.wv_targets = self._all_evidence_for_edge(EdgeType.WEAPON_VICTIM)
+        plan.sr_targets = self._all_evidence_for_edge(EdgeType.SUSPECT_ROOM)
 
-        # Alibi contradiction
+        # Alibi — pass the first SR evidence id for the initial contradiction dict;
+        # _make_accuse_action will overwrite contradiction_evidence with all discovered SR ids.
         if culprit and culprit.alibi_claims:
-            plan.alibi_contradiction = self._build_alibi_contradiction(culprit.alibi_claims)
+            sr_eid = plan.sr_targets[0].evidence_id if plan.sr_targets else None
+            plan.alibi_contradiction = self._build_alibi_contradiction(
+                culprit.alibi_claims, sr_eid
+            )
 
-        # Visit order: start from agent's current location, greedy nearest-neighbour
-        targets = [t for t in (plan.sw_target, plan.wv_target, plan.sr_target) if t is not None]
-        unique_locs = list(dict.fromkeys(t.location_id for t in targets))  # preserve order, deduplicate
+        # Elimination targets + TALK_TO list (culprit for alibi + corroborators)
+        talk_ids: list[str] = []
+        if culprit:
+            talk_ids.append(culprit.id)
+
+        for ev in state.evidence.values():
+            if (
+                ev.relevance is not None
+                and ev.relevance.edge_type == EdgeType.SUSPECT_ELSEWHERE
+                and ev.linked_character_id
+                and ev.corroborator_id
+            ):
+                innocent = state.characters.get(ev.linked_character_id)
+                corr = state.characters.get(ev.corroborator_id)
+                if innocent and corr and not innocent.is_culprit:
+                    plan.elimination_targets.append(_EliminationTarget(
+                        suspect_name=innocent.full_name,
+                        evidence_id=ev.id,
+                        corroborator_name=corr.full_name,
+                    ))
+                    if ev.corroborator_id not in talk_ids:
+                        talk_ids.append(ev.corroborator_id)
+
+        plan.talk_targets = [
+            state.characters[cid].full_name
+            for cid in talk_ids if cid in state.characters
+        ]
+
+        # Visit order (TSP over evidence locations + talk targets)
+        ev_targets: list[_EvidenceTarget] = []
+        ev_targets += plan.sw_targets
+        ev_targets += plan.wv_targets
+        ev_targets += plan.sr_targets
+        for et in plan.elimination_targets:
+            se_ev = state.evidence.get(et.evidence_id)
+            if se_ev:
+                obj_name = next(
+                    (o.name for o in state.objects.values() if o.evidence_id == et.evidence_id),
+                    None,
+                )
+                ev_targets.append(_EvidenceTarget(
+                    evidence_id=et.evidence_id,
+                    location_id=se_ev.location_id,
+                    object_name=obj_name,
+                ))
+
+        talk_locs = [
+            state.characters[cid].location_id
+            for cid in talk_ids if cid in state.characters
+        ]
+
+        unique_locs = list(dict.fromkeys(
+            [t.location_id for t in ev_targets] + talk_locs
+        ))
         plan.visit_order = self._greedy_visit_order(env.agent_location_id, unique_locs)
 
+        # Sort evidence targets: triangle evidence (SW/WV/SR) first, then
+        # elimination evidence. Within each group, maintain TSP location order.
+        # This ensures the oracle collects Locard triangle evidence before
+        # spending actions on optional elimination targets, reducing the risk
+        # that high-value triangle evidence decays while the oracle is chasing
+        # elimination pieces in distant rooms.
+        triangle_ids = {
+            t.evidence_id
+            for t in plan.sw_targets + plan.wv_targets + plan.sr_targets
+        }
+        loc_rank = {loc_id: i for i, loc_id in enumerate(plan.visit_order)}
+        ev_targets.sort(key=lambda t: (
+            0 if t.evidence_id in triangle_ids else 1,
+            loc_rank.get(t.location_id, len(plan.visit_order)),
+        ))
+
+        # Store all evidence targets for decide_action
+        self._all_ev_targets = ev_targets
         return plan
 
-    def _best_evidence(self, edge: EdgeType) -> _EvidenceTarget | None:
-        """Return the easiest-to-discover, fresh, non-red-herring evidence for edge."""
+
+    def _all_evidence_for_edge(self, edge: EdgeType) -> list[_EvidenceTarget]:
+        """Return ALL fresh, non-red-herring evidence targets for this edge."""
         env = self._env
         assert env is not None
         state = env.state
         murder_ts = state.murder_timestamp
         threshold = state.freshness_threshold
+        from mystery_world.world import _relevance_matches_truth
 
         candidates = []
         for ev in state.evidence.values():
@@ -238,67 +327,46 @@ class OracleAgent(BaseAgent):
                 continue
             if ev.relevance is None or ev.relevance.edge_type != edge:
                 continue
-            # Freshness check
             if abs(ev.relevance.contact_timestamp - murder_ts) >= threshold:
                 continue
-            # Must point to the right entities
-            from mystery_world.world import _relevance_matches_truth
             if not _relevance_matches_truth(ev.relevance, edge, state):
                 continue
             candidates.append(ev)
 
-        if not candidates:
-            return None
+        targets = []
+        for ev in candidates:
+            obj_name: str | None = None
+            obj_location_id: str = ev.location_id
+            for obj in state.objects.values():
+                if obj.evidence_id == ev.id:
+                    obj_name = obj.name
+                    obj_location_id = obj.location_id
+                    break
+            targets.append(_EvidenceTarget(
+                evidence_id=ev.id,
+                location_id=obj_location_id,
+                object_name=obj_name,
+            ))
+        return targets
 
-        # Sort: prefer non-HIDDEN first, then by difficulty ascending
-        candidates.sort(key=lambda e: (e.state == EvidenceState.HIDDEN, e.discovery_difficulty))
-        ev = candidates[0]
-
-        # Find the linked WorldObject (if any) for deterministic discovery
-        obj_name: str | None = None
-        for obj in state.objects.values():
-            if obj.evidence_id == ev.id and obj.location_id == ev.location_id:
-                obj_name = obj.name
-                break
-
-        return _EvidenceTarget(
-            evidence_id=ev.id,
-            location_id=ev.location_id,
-            object_name=obj_name,
-        )
-
-    def _build_alibi_contradiction(self, claims: list[AlibiClaim]) -> dict[str, Any]:
-        """Build the alibi_contradiction dict expected by score_accusation."""
-        env = self._env
-        assert env is not None
-        state = env.state
-        murder_loc = state.locations.get(state.murder_location_id)
-        murder_loc_name = murder_loc.name if murder_loc else ""
-
+    def _build_alibi_contradiction(
+        self, claims: list[AlibiClaim], sr_evidence_id: str | None
+    ) -> dict[str, Any]:
+        sr_ids = [sr_evidence_id] if sr_evidence_id else []
         if len(claims) == 1:
-            # Type A: single claim at murder_step in wrong location
             claim = claims[0]
             return {
                 "claimed_location": claim.location_name,
                 "claimed_time": claim.clock_time_str,
-                "contradiction_evidence": (
-                    f"Physical evidence places suspect at the {murder_loc_name} "
-                    f"at {claim.clock_time_str}, contradicting their stated alibi."
-                ),
+                "contradiction_evidence": sr_ids,
             }
-        else:
-            # Type B: two bracketing claims — route forced through crime scene
-            before = min(claims, key=lambda a: a.step)
-            after = max(claims, key=lambda a: a.step)
-            return {
-                "claimed_location": before.location_name,
-                "claimed_time": before.clock_time_str,
-                "contradiction_evidence": (
-                    f"Route from {before.location_name} to {after.location_name} "
-                    f"must pass through {murder_loc_name} — placing suspect at the "
-                    f"crime scene at the murder time."
-                ),
-            }
+        before = min(claims, key=lambda a: a.step)
+        return {
+            "claimed_location": before.location_name,
+            "claimed_time": before.clock_time_str,
+            "contradiction_evidence": sr_ids,
+        }
+        
 
     def _greedy_visit_order(self, start_id: str, target_ids: list[str]) -> list[str]:
         """Nearest-neighbour tour from start through all target location IDs."""
@@ -403,9 +471,9 @@ class OracleAgent(BaseAgent):
                 "culprit": self._plan.culprit_name if self._plan else "",
                 "weapon": self._plan.weapon_name if self._plan else "",
                 "location": self._plan.location_name if self._plan else "",
-                "sw_evidence": self._plan.sw_target.evidence_id if self._plan and self._plan.sw_target else None,
-                "wv_evidence": self._plan.wv_target.evidence_id if self._plan and self._plan.wv_target else None,
-                "sr_evidence": self._plan.sr_target.evidence_id if self._plan and self._plan.sr_target else None,
+                "sw_evidence": [t.evidence_id for t in self._plan.sw_targets] if self._plan else [],
+                "wv_evidence": [t.evidence_id for t in self._plan.wv_targets] if self._plan else [],
+                "sr_evidence": [t.evidence_id for t in self._plan.sr_targets] if self._plan else [],
                 "alibi_type": (
                     "A" if self._plan and self._plan.alibi_contradiction
                     and len(env.state.get_culprit().alibi_claims) == 1

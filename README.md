@@ -48,7 +48,7 @@ generate_mystery(seed, config) ──► WorldState
     │    result = env.step(action, **kwargs)                         │
     │         │                                                      │
     │         ├── MOVE / EXAMINE_LOCATION                            │
-    │         ├── EXAMINE_OBJECT / SEARCH_FOR_EVIDENCE               │
+    │         ├── EXAMINE_OBJECT                                     │
     │         ├── ANALYZE / TRAVEL_TIME / CHECK_ROUTE                │
     │         ├── TALK_TO ──► NPCResponder (LLM or template)         │
     │         ├── ACCUSE ──► score & end episode                     │
@@ -503,3 +503,6 @@ Every benchmark instance is fully determined by:
   year      = {2026}
 }
 ```
+
+
+claude --resume 08b80e79-79d1-44b1-b0ae-fdd7fd56188d

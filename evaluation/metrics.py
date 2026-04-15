@@ -33,21 +33,39 @@ class EpisodeMetrics:
     location_correct: bool = False
     partial_score: float = 0.0      # fraction of (suspect, weapon, location) correct
 
-    # --- Locard triangle ---
-    accusation_score: float = 0.0
-    triangle_score: float = 0.0
+    # Locard triangle (per-edge precision, recall, F1)
+    suspect_weapon_precision: float = 0.0
+    suspect_weapon_recall: float = 0.0
     suspect_weapon_score: float = 0.0
+    weapon_victim_precision: float = 0.0
+    weapon_victim_recall: float = 0.0
     weapon_victim_score: float = 0.0
+    suspect_room_precision: float = 0.0
+    suspect_room_recall: float = 0.0
     suspect_room_score: float = 0.0
+    triangle_score: float = 0.0
 
-    # --- Alibi verification ---
+    # Alibi
+    alibi_score: float = 0.0
+
+    # Elimination
+    correct_eliminations: int = 0
+    incorrect_eliminations: int = 0
+    elimination_score: float = 0.0
+
+    # Accusation + alibi (copied from score_result for reporting)
+    accusation_score: float = 0.0
     alibi_cited: bool = False
     contradiction_found: bool = False
     contradiction_valid: bool = False
-    alibi_score: float = 0.0
 
-    # --- Composite ---
+    # Composite
     composite_score: float = 0.0
+
+    # Action efficiency
+    examine_total: int = 0
+    examine_hit: int = 0
+    examine_efficiency: float = 0.0
 
     # --- Belief accuracy ---
     # Tracked at each step: was the top belief the ground truth?
@@ -137,17 +155,10 @@ def compute_episode_metrics(
 
     # Solve rate
     m.solved = bool(episode_summary.get("accusation_correct", False))
-    # Check per-component from action_history
-    last_action = episode_summary.get("action_history", [{}])[-1] if episode_summary.get("action_history") else {}
-    # We rely on the accusation correct flag from the environment
     if m.solved:
         m.suspect_correct = m.weapon_correct = m.location_correct = True
         m.partial_score = 1.0
-    else:
-        # Try to compute partial score from last accusation
-        m.partial_score = 0.0
-        # Will be overriden by runner if detailed accusation info available
-    
+
     # Clue efficiency
     total_evidence = episode_summary.get("total_evidence", 1)
     discovered = len(episode_summary.get("evidence_discovered", []))
@@ -160,16 +171,14 @@ def compute_episode_metrics(
     for snap in belief_snapshots:
         sprobs = snap.get("suspect_probs", {})
         if sprobs and gt_suspect:
-            # Accuracy = probability assigned to true culprit
             accuracy = sprobs.get(gt_suspect, 0)
             m.belief_accuracy_trace.append(accuracy)
         else:
             m.belief_accuracy_trace.append(0.0)
-    
     if m.belief_accuracy_trace:
         m.final_belief_accuracy = m.belief_accuracy_trace[-1]
-    
-    # Token cost
+
+    # Token cost / action efficiency
     m.total_tokens = total_tokens
     m.actions_used = episode_summary.get("actions_taken", 0)
     m.action_budget = episode_summary.get("budget", 0)
@@ -179,8 +188,45 @@ def compute_episode_metrics(
     m.total_steps = episode_summary.get("steps_elapsed", 0)
     m.event_count = episode_summary.get("event_count", 0)
 
-    return m
+    # Examine efficiency (tracked by the environment)
+    m.examine_total = episode_summary.get("examine_total", 0)
+    m.examine_hit = episode_summary.get("examine_hit", 0)
+    m.examine_efficiency = (
+        m.examine_hit / m.examine_total if m.examine_total > 0 else 1.0
+    )
 
+    # Score breakdown — populated when the agent ACCUSEd with scoring kwargs
+    score = episode_summary.get("score_result") or {}
+    if score:
+        m.partial_score = score.get("accusation_score", m.partial_score)
+        m.accusation_score = score.get("accusation_score", 0.0)
+        m.suspect_correct = bool(score.get("correct_suspect", m.suspect_correct))
+        m.weapon_correct = bool(score.get("correct_weapon", m.weapon_correct))
+        m.location_correct = bool(score.get("correct_room", m.location_correct))
+
+        m.suspect_weapon_precision = score.get("suspect_weapon_precision", 0.0)
+        m.suspect_weapon_recall = score.get("suspect_weapon_recall", 0.0)
+        m.suspect_weapon_score = score.get("suspect_weapon_score", 0.0)
+        m.weapon_victim_precision = score.get("weapon_victim_precision", 0.0)
+        m.weapon_victim_recall = score.get("weapon_victim_recall", 0.0)
+        m.weapon_victim_score = score.get("weapon_victim_score", 0.0)
+        m.suspect_room_precision = score.get("suspect_room_precision", 0.0)
+        m.suspect_room_recall = score.get("suspect_room_recall", 0.0)
+        m.suspect_room_score = score.get("suspect_room_score", 0.0)
+        m.triangle_score = score.get("triangle_score", 0.0)
+
+        m.alibi_cited = bool(score.get("alibi_cited", False))
+        m.contradiction_found = bool(score.get("contradiction_found", False))
+        m.contradiction_valid = bool(score.get("contradiction_valid", False))
+        m.alibi_score = score.get("alibi_score", 0.0)
+
+        m.correct_eliminations = int(score.get("correct_eliminations", 0))
+        m.incorrect_eliminations = int(score.get("incorrect_eliminations", 0))
+        m.elimination_score = score.get("elimination_score", 0.0)
+
+        m.composite_score = score.get("composite_score", 0.0)
+
+    return m
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +248,10 @@ class AggregateMetrics:
     mean_triangle_score: float = 0.0
     mean_alibi_score: float = 0.0
     mean_composite_score: float = 0.0
+    mean_triangle_precision: float = 0.0
+    mean_triangle_recall: float = 0.0
+    mean_elimination_score: float = 0.0
+    mean_examine_efficiency: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -241,5 +291,17 @@ def aggregate_metrics(episodes: list[EpisodeMetrics], level: int) -> AggregateMe
         mean_triangle_score=sum(e.triangle_score for e in level_eps) / n,
         mean_alibi_score=sum(e.alibi_score for e in level_eps) / n,
         mean_composite_score=sum(e.composite_score for e in level_eps) / n,
+        mean_triangle_precision=sum(
+            (e.suspect_weapon_precision + e.weapon_victim_precision
+             + e.suspect_room_precision) / 3.0
+            for e in level_eps
+        ) / n,
+        mean_triangle_recall=sum(
+            (e.suspect_weapon_recall + e.weapon_victim_recall
+             + e.suspect_room_recall) / 3.0
+            for e in level_eps
+        ) / n,
+        mean_elimination_score=sum(e.elimination_score for e in level_eps) / n,
+        mean_examine_efficiency=sum(e.examine_efficiency for e in level_eps) / n,
     )
     return agg
