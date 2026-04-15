@@ -8,12 +8,11 @@ weapons, and locations, enabling evaluation of reasoning quality.
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from mystery_world.world import AgentAction, MysteryEnvironment
+from mystery_world.world import AgentAction
 
 
 # ---------------------------------------------------------------------------

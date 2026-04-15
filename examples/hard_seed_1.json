@@ -1,0 +1,246 @@
+{
+  "id": "hard_seed_1",
+  "complexity": "HARD",
+  "seed": 1,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Petra Iverson",
+    "weapon": "brass candlestick",
+    "location": "Grand Foyer"
+  },
+  "alibi_claims": [
+    {
+      "location": "Clock Tower",
+      "time": "10:00 PM"
+    },
+    {
+      "location": "Library Annex",
+      "time": "11:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Adrian Crane",
+      "evidence_id": "ev_513798",
+      "corroborator": "Kieran Finch"
+    },
+    {
+      "suspect": "Kieran Finch",
+      "evidence_id": "ev_681148",
+      "corroborator": "Fern Kingsley"
+    },
+    {
+      "suspect": "Fern Kingsley",
+      "evidence_id": "ev_994896",
+      "corroborator": "Kieran Finch"
+    },
+    {
+      "suspect": "Nadia Lark",
+      "evidence_id": "ev_249584",
+      "corroborator": "Kieran Finch"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_473184",
+      "ev_552067",
+      "ev_523333",
+      "ev_236488"
+    ],
+    "wv_evidence": [
+      "ev_916861",
+      "ev_655955"
+    ],
+    "sr_evidence": [
+      "ev_896068"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Clock Tower",
+      "claimed_time": "10:00 PM",
+      "contradiction_evidence": [
+        "ev_896068"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "floor lamp"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 10,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Iverson",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Kieran Finch",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 17,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 18,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Kingsley",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 19,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Petra Iverson",
+        "weapon_name": "brass candlestick",
+        "location_name": "Grand Foyer",
+        "suspect_weapon_evidence": [
+          "ev_236488"
+        ],
+        "suspect_room_evidence": [
+          "ev_896068"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Clock Tower",
+          "claimed_time": "10:00 PM",
+          "contradiction_evidence": [
+            "ev_896068"
+          ]
+        },
+        "eliminations": {
+          "Adrian Crane": {
+            "evidence_id": "ev_513798",
+            "corroborator": "Kieran Finch"
+          },
+          "Kieran Finch": {
+            "evidence_id": "ev_681148",
+            "corroborator": "Fern Kingsley"
+          },
+          "Fern Kingsley": {
+            "evidence_id": "ev_994896",
+            "corroborator": "Kieran Finch"
+          },
+          "Nadia Lark": {
+            "evidence_id": "ev_249584",
+            "corroborator": "Kieran Finch"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.6133,
+    "triangle": 1.4,
+    "alibi": 0.6667,
+    "elimination": 0.0,
+    "sw": 0.4,
+    "wv": 0.0,
+    "sr": 1.0
+  }
+}

@@ -1,0 +1,203 @@
+{
+  "id": "trivial_seed_0",
+  "complexity": "TRIVIAL",
+  "seed": 0,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Rosalind Iverson",
+    "weapon": "iron fireplace poker",
+    "location": "Observatory Deck"
+  },
+  "alibi_claims": [
+    {
+      "location": "Library Annex",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Thea Lark",
+      "evidence_id": "ev_973873",
+      "corroborator": "Helena Montague"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_774363"
+    ],
+    "wv_evidence": [
+      "ev_740027",
+      "ev_971132",
+      "ev_961488"
+    ],
+    "sr_evidence": [
+      "ev_219124"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Library Annex",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_219124"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "umbrella stand"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "iron fireplace poker"
+      }
+    },
+    {
+      "step": 6,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wall mirror"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 13,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Iverson",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Helena Montague",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Rosalind Iverson",
+        "weapon_name": "iron fireplace poker",
+        "location_name": "Observatory Deck",
+        "suspect_weapon_evidence": [
+          "ev_774363"
+        ],
+        "weapon_victim_evidence": [
+          "ev_740027",
+          "ev_971132",
+          "ev_961488"
+        ],
+        "suspect_room_evidence": [
+          "ev_219124"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Library Annex",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_219124"
+          ]
+        },
+        "eliminations": {
+          "Thea Lark": {
+            "evidence_id": "ev_973873",
+            "corroborator": "Helena Montague"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

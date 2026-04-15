@@ -1,0 +1,211 @@
+{
+  "id": "easy_seed_0",
+  "complexity": "EASY",
+  "seed": 0,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Silas Prescott",
+    "weapon": "gardening shears",
+    "location": "Observatory Deck"
+  },
+  "alibi_claims": [
+    {
+      "location": "Clock Tower",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Emory Sterling",
+      "evidence_id": "ev_670971",
+      "corroborator": "Petra Montague"
+    },
+    {
+      "suspect": "Petra Montague",
+      "evidence_id": "ev_133257",
+      "corroborator": "Emory Sterling"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_663855"
+    ],
+    "wv_evidence": [
+      "ev_673217",
+      "ev_950104"
+    ],
+    "sr_evidence": [
+      "ev_432463"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Clock Tower",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_432463"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "porcelain vase"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "gardening shears"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "storage trunk"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 12,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Prescott",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Montague",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Emory Sterling",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Silas Prescott",
+        "weapon_name": "gardening shears",
+        "location_name": "Observatory Deck",
+        "suspect_weapon_evidence": [
+          "ev_663855"
+        ],
+        "weapon_victim_evidence": [
+          "ev_673217",
+          "ev_950104"
+        ],
+        "suspect_room_evidence": [
+          "ev_432463"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Clock Tower",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_432463"
+          ]
+        },
+        "eliminations": {
+          "Emory Sterling": {
+            "evidence_id": "ev_670971",
+            "corroborator": "Petra Montague"
+          },
+          "Petra Montague": {
+            "evidence_id": "ev_133257",
+            "corroborator": "Emory Sterling"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

@@ -88,15 +88,27 @@ def main() -> None:
 
     actions = [
         (AgentAction.EXAMINE_LOCATION, {}),
-        (AgentAction.SEARCH_FOR_EVIDENCE, {}),
     ]
+    loc = env.get_current_location()
+    if loc:
+        for oid in loc.objects_here[:2]:
+            obj = ws.objects.get(oid)
+            if obj is not None:
+                actions.append(
+                    (AgentAction.EXAMINE_OBJECT, {"object_name": obj.name})
+                )
 
     # Move to an adjacent location
-    loc = env.get_current_location()
     if loc and loc.adjacent_ids:
         adj = ws.locations[loc.adjacent_ids[0]]
         actions.append((AgentAction.MOVE, {"target_location": adj.name}))
-        actions.append((AgentAction.SEARCH_FOR_EVIDENCE, {}))
+        actions.append((AgentAction.EXAMINE_LOCATION, {}))
+        for oid in adj.objects_here[:2]:
+            obj = ws.objects.get(oid)
+            if obj is not None:
+                actions.append(
+                    (AgentAction.EXAMINE_OBJECT, {"object_name": obj.name})
+                )
         # Talk to someone there
         if adj.characters_here:
             char = ws.characters.get(adj.characters_here[0])

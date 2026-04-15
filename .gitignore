@@ -40,3 +40,8 @@ results/
 
 # macOS
 .DS_Store
+run_oracle.py
+proposed_changes.md
+main.py
+pr_description.md
+claude.md

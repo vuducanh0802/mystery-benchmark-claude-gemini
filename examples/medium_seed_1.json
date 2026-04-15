@@ -1,0 +1,264 @@
+{
+  "id": "medium_seed_1",
+  "complexity": "MEDIUM",
+  "seed": 1,
+  "multi_evidence": false,
+  "ground_truth": {
+    "culprit": "Nadia Oakley",
+    "weapon": "ornate letter opener",
+    "location": "Servants' Quarters"
+  },
+  "alibi_claims": [
+    {
+      "location": "Billiard Room",
+      "time": "9:00 PM"
+    },
+    {
+      "location": "Grand Foyer",
+      "time": "10:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Emory Lark",
+      "evidence_id": "ev_961563",
+      "corroborator": "Dahlia Quinlan"
+    },
+    {
+      "suspect": "Inigo Sterling",
+      "evidence_id": "ev_410624",
+      "corroborator": "Dahlia Quinlan"
+    },
+    {
+      "suspect": "Dahlia Quinlan",
+      "evidence_id": "ev_944875",
+      "corroborator": "Emory Lark"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_583598"
+    ],
+    "wv_evidence": [
+      "ev_796504"
+    ],
+    "sr_evidence": [
+      "ev_600609"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Billiard Room",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_600609"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "shelf of books"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "ornate letter opener"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "fireplace mantel"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "porcelain vase"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      }
+    },
+    {
+      "step": 12,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Nadia Oakley",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 19,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Dahlia Quinlan",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 20,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 21,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 22,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Emory Lark",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 23,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Nadia Oakley",
+        "weapon_name": "ornate letter opener",
+        "location_name": "Servants' Quarters",
+        "suspect_weapon_evidence": [
+          "ev_583598"
+        ],
+        "weapon_victim_evidence": [
+          "ev_796504"
+        ],
+        "suspect_room_evidence": [
+          "ev_600609"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Billiard Room",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_600609"
+          ]
+        },
+        "eliminations": {
+          "Emory Lark": {
+            "evidence_id": "ev_961563",
+            "corroborator": "Dahlia Quinlan"
+          },
+          "Inigo Sterling": {
+            "evidence_id": "ev_410624",
+            "corroborator": "Dahlia Quinlan"
+          },
+          "Dahlia Quinlan": {
+            "evidence_id": "ev_944875",
+            "corroborator": "Emory Lark"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.95,
+    "triangle": 3.0,
+    "alibi": 0.6667,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

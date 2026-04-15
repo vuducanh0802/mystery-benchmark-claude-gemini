@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import json
 import re
-from itertools import product as cartesian_product
 from typing import Any
 
 import networkx as nx
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from agents.llm_agent import LLMClient
 from mystery_world.entities import CharacterRole
 from mystery_world.world import AgentAction, MysteryEnvironment
@@ -160,7 +159,7 @@ def _plan_next_action(
     all_weapons: list[str],
     all_locations: list[str],
     interviewed: set[str],
-    searched_locations: set[str],
+    examined_locations: set[str],
 ) -> tuple[str, str]:
     """
     Heuristic planner that picks the action maximising expected information gain.
@@ -177,20 +176,20 @@ def _plan_next_action(
             f"Interviewing {uninterviewed[0]} could provide alibi info to eliminate or confirm them.",
         )
 
-    # Priority 2: search unexplored locations
+    # Priority 2: examine objects in unexplored locations
     loc = env.get_current_location()
     current_loc_name = loc.name if loc else ""
-    unsearched = [l for l in remaining["locations"] if l not in searched_locations]
-    if unsearched:
-        target = unsearched[0]
+    unexamined = [l for l in remaining["locations"] if l not in examined_locations]
+    if unexamined:
+        target = unexamined[0]
         if target != current_loc_name:
             return (
                 f"MOVE {target}",
-                f"Moving to {target} to search for evidence.",
+                f"Moving to {target} to examine its objects for evidence.",
             )
         return (
-            "SEARCH_FOR_EVIDENCE",
-            f"Searching {target} for new evidence.",
+            "EXAMINE_LOCATION",
+            f"Scanning {target} to find objects worth examining.",
         )
 
     # Priority 3: if only one candidate left, accuse
@@ -202,7 +201,7 @@ def _plan_next_action(
             "Only one possibility remains. Making accusation.",
         )
 
-    return ("SEARCH_FOR_EVIDENCE", "Continuing investigation.")
+    return ("EXAMINE_LOCATION", "Continuing investigation.")
 
 
 # ---------------------------------------------------------------------------
@@ -239,10 +238,31 @@ Output EXACTLY this JSON:
   "action_args": {"<key>": "<value>", ...}
 }
 
+Valid actions: MOVE, EXAMINE_LOCATION, EXAMINE_OBJECT, TALK_TO, TAKE_OBJECT,
+CHECK_INVENTORY, WAIT, ACCUSE. There is no SEARCH_FOR_EVIDENCE — evidence is
+found by EXAMINE_OBJECT.
+
+ACCUSE action_args schema (all keys required for full credit):
+{
+  "suspect_name": "<name>",
+  "weapon_name": "<name>",
+  "location_name": "<room>",
+  "suspect_weapon_evidence": ["<evidence_id>", ...],
+  "weapon_victim_evidence": ["<evidence_id>", ...],
+  "suspect_room_evidence": ["<evidence_id>", ...],
+  "alibi_contradiction": {
+    "claimed_location": "<where the culprit claimed to be>",
+    "claimed_time": "<time they claimed>",
+    "contradiction_evidence": ["<evidence_id>", ...]
+  },
+  "eliminations": {
+    "<innocent_name>": {"evidence_id": "<id>", "corroborator": "<witness_name>"}
+  }
+}
+
 Use deductive reasoning: if a suspect has a verified alibi, ELIMINATE them.
 Use abductive reasoning: which hypothesis best explains ALL evidence?
 """
-
 
 class SymbolicAgent(BaseAgent):
     """
@@ -269,7 +289,7 @@ class SymbolicAgent(BaseAgent):
         self._all_weapons: list[str] = []
         self._all_locations: list[str] = []
         self._interviewed: set[str] = set()
-        self._searched_locations: set[str] = set()
+        self._examined_locations: set[str] = set()
 
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:
         self.briefing = briefing
@@ -302,7 +322,7 @@ class SymbolicAgent(BaseAgent):
         suggestion, rationale = _plan_next_action(
             self.kg, self.solver, self._env,
             self._all_suspects, self._all_weapons, self._all_locations,
-            self._interviewed, self._searched_locations,
+            self._interviewed, self._examined_locations,
         )
 
         # Build augmented prompt
@@ -361,10 +381,10 @@ class SymbolicAgent(BaseAgent):
         # Track agent activities for planner
         if action_str == "TALK_TO" and "character_name" in action_args:
             self._interviewed.add(action_args["character_name"])
-        if action_str == "SEARCH_FOR_EVIDENCE":
+        if action_str == "EXAMINE_LOCATION":
             loc = self._env.get_current_location() if self._env else None
             if loc:
-                self._searched_locations.add(loc.name)
+                self._examined_locations.add(loc.name)
 
         try:
             action = AgentAction[action_str]

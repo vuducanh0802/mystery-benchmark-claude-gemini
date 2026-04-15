@@ -1,0 +1,168 @@
+{
+  "id": "trivial_seed_2",
+  "complexity": "TRIVIAL",
+  "seed": 2,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Adrian Iverson",
+    "weapon": "gardening shears",
+    "location": "Dimly-Lit Study"
+  },
+  "alibi_claims": [
+    {
+      "location": "Cellar Vault",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Dahlia Quinlan",
+      "evidence_id": "ev_855406",
+      "corroborator": "Helena Ravenswood"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_315629",
+      "ev_233166",
+      "ev_651994"
+    ],
+    "wv_evidence": [
+      "ev_144112"
+    ],
+    "sr_evidence": [
+      "ev_804272"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Cellar Vault",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_804272"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "gardening shears"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "floor lamp"
+      }
+    },
+    {
+      "step": 9,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Iverson",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 11,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Helena Ravenswood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 12,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Adrian Iverson",
+        "weapon_name": "gardening shears",
+        "location_name": "Dimly-Lit Study",
+        "suspect_weapon_evidence": [
+          "ev_315629",
+          "ev_233166",
+          "ev_651994"
+        ],
+        "weapon_victim_evidence": [
+          "ev_144112"
+        ],
+        "suspect_room_evidence": [
+          "ev_804272"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Cellar Vault",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_804272"
+          ]
+        },
+        "eliminations": {
+          "Dahlia Quinlan": {
+            "evidence_id": "ev_855406",
+            "corroborator": "Helena Ravenswood"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

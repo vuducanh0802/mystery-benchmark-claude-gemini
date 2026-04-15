@@ -1,0 +1,354 @@
+{
+  "id": "expert_seed_3",
+  "complexity": "EXPERT",
+  "seed": 3,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Orson Juno",
+    "weapon": "kitchen cleaver",
+    "location": "Cellar Vault"
+  },
+  "alibi_claims": [
+    {
+      "location": "Observatory Deck",
+      "time": "10:30 PM"
+    },
+    {
+      "location": "Billiard Room",
+      "time": "11:30 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Dahlia Thornfield",
+      "evidence_id": "ev_100522",
+      "corroborator": "Silas Sterling"
+    },
+    {
+      "suspect": "Silas Sterling",
+      "evidence_id": "ev_967275",
+      "corroborator": "Nadia Deveraux"
+    },
+    {
+      "suspect": "Nadia Deveraux",
+      "evidence_id": "ev_802379",
+      "corroborator": "Dahlia Thornfield"
+    },
+    {
+      "suspect": "Josette Quinlan",
+      "evidence_id": "ev_431702",
+      "corroborator": "Adrian Prescott"
+    },
+    {
+      "suspect": "Emory Blackwood",
+      "evidence_id": "ev_792372",
+      "corroborator": "Josette Quinlan"
+    },
+    {
+      "suspect": "Adrian Prescott",
+      "evidence_id": "ev_992891",
+      "corroborator": "Emory Blackwood"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_863832",
+      "ev_892143"
+    ],
+    "wv_evidence": [
+      "ev_432091"
+    ],
+    "sr_evidence": [
+      "ev_723793",
+      "ev_772567"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Observatory Deck",
+      "claimed_time": "10:30 PM",
+      "contradiction_evidence": [
+        "ev_772567"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "floor lamp"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 6,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "armchair"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "storage trunk"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 12,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Orson Juno",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Sterling",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Nadia Deveraux",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 19,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 20,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Dahlia Thornfield",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 21,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 22,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 23,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 24,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Prescott",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 25,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 26,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Courtyard Terrace"
+      }
+    },
+    {
+      "step": 27,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 28,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 29,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Josette Quinlan",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 30,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 31,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Emory Blackwood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 32,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Orson Juno",
+        "weapon_name": "kitchen cleaver",
+        "location_name": "Cellar Vault",
+        "suspect_room_evidence": [
+          "ev_772567"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Observatory Deck",
+          "claimed_time": "10:30 PM",
+          "contradiction_evidence": [
+            "ev_772567"
+          ]
+        },
+        "eliminations": {
+          "Dahlia Thornfield": {
+            "evidence_id": "ev_100522",
+            "corroborator": "Silas Sterling"
+          },
+          "Silas Sterling": {
+            "evidence_id": "ev_967275",
+            "corroborator": "Nadia Deveraux"
+          },
+          "Nadia Deveraux": {
+            "evidence_id": "ev_802379",
+            "corroborator": "Dahlia Thornfield"
+          },
+          "Josette Quinlan": {
+            "evidence_id": "ev_431702",
+            "corroborator": "Adrian Prescott"
+          },
+          "Emory Blackwood": {
+            "evidence_id": "ev_792372",
+            "corroborator": "Josette Quinlan"
+          },
+          "Adrian Prescott": {
+            "evidence_id": "ev_992891",
+            "corroborator": "Emory Blackwood"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.6528,
+    "triangle": 0.6667,
+    "alibi": 1.0,
+    "elimination": 0.5,
+    "sw": 0.0,
+    "wv": 0.0,
+    "sr": 0.6667
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "id": "medium_seed_2",
+  "complexity": "MEDIUM",
+  "seed": 2,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Beatrix Greystone",
+    "weapon": "kitchen cleaver",
+    "location": "Dimly-Lit Study"
+  },
+  "alibi_claims": [
+    {
+      "location": "Clock Tower",
+      "time": "8:30 PM"
+    },
+    {
+      "location": "Servants' Quarters",
+      "time": "9:30 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Josette Harlow",
+      "evidence_id": "ev_911008",
+      "corroborator": "Linnea Juno"
+    },
+    {
+      "suspect": "Quinn Montague",
+      "evidence_id": "ev_110587",
+      "corroborator": "Josette Harlow"
+    },
+    {
+      "suspect": "Linnea Juno",
+      "evidence_id": "ev_226928",
+      "corroborator": "Quinn Montague"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_309145",
+      "ev_538680"
+    ],
+    "wv_evidence": [
+      "ev_313680"
+    ],
+    "sr_evidence": [
+      "ev_678821"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Clock Tower",
+      "claimed_time": "8:30 PM",
+      "contradiction_evidence": [
+        "ev_678821"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "serving tray"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "footstool"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "armchair"
+      }
+    },
+    {
+      "step": 11,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 13,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wall mirror"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Beatrix Greystone",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Linnea Juno",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 18,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Josette Harlow",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 19,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Quinn Montague",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 20,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Beatrix Greystone",
+        "weapon_name": "kitchen cleaver",
+        "location_name": "Dimly-Lit Study",
+        "suspect_weapon_evidence": [
+          "ev_538680"
+        ],
+        "weapon_victim_evidence": [
+          "ev_313680"
+        ],
+        "suspect_room_evidence": [
+          "ev_678821"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Clock Tower",
+          "claimed_time": "8:30 PM",
+          "contradiction_evidence": [
+            "ev_678821"
+          ]
+        },
+        "eliminations": {
+          "Josette Harlow": {
+            "evidence_id": "ev_911008",
+            "corroborator": "Linnea Juno"
+          },
+          "Quinn Montague": {
+            "evidence_id": "ev_110587",
+            "corroborator": "Josette Harlow"
+          },
+          "Linnea Juno": {
+            "evidence_id": "ev_226928",
+            "corroborator": "Quinn Montague"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.9111,
+    "triangle": 2.6667,
+    "alibi": 0.6667,
+    "elimination": 1.0,
+    "sw": 0.6667,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

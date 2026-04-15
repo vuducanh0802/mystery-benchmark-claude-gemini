@@ -1,0 +1,243 @@
+{
+  "id": "hard_seed_83",
+  "complexity": "HARD",
+  "seed": 83,
+  "multi_evidence": false,
+  "ground_truth": {
+    "culprit": "Rosalind Juno",
+    "weapon": "silk scarf",
+    "location": "Cellar Vault"
+  },
+  "alibi_claims": [
+    {
+      "location": "Music Salon",
+      "time": "9:00 PM"
+    },
+    {
+      "location": "Clock Tower",
+      "time": "10:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Maxfield Prescott",
+      "evidence_id": "ev_277385",
+      "corroborator": "Orson Elsworth"
+    },
+    {
+      "suspect": "Quinn Iverson",
+      "evidence_id": "ev_236125",
+      "corroborator": "Orson Elsworth"
+    },
+    {
+      "suspect": "Orson Elsworth",
+      "evidence_id": "ev_592236",
+      "corroborator": "Adrian Harlow"
+    },
+    {
+      "suspect": "Adrian Harlow",
+      "evidence_id": "ev_446076",
+      "corroborator": "Quinn Iverson"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_132153"
+    ],
+    "wv_evidence": [
+      "ev_599938"
+    ],
+    "sr_evidence": [
+      "ev_477495"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Music Salon",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": []
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "silk scarf"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "storage trunk"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 10,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Juno",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 12,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Orson Elsworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Harlow",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 17,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 19,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Quinn Iverson",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 20,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Rosalind Juno",
+        "weapon_name": "silk scarf",
+        "location_name": "Cellar Vault",
+        "suspect_weapon_evidence": [
+          "ev_132153"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Music Salon",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": []
+        },
+        "eliminations": {
+          "Maxfield Prescott": {
+            "evidence_id": "ev_277385",
+            "corroborator": "Orson Elsworth"
+          },
+          "Quinn Iverson": {
+            "evidence_id": "ev_236125",
+            "corroborator": "Orson Elsworth"
+          },
+          "Orson Elsworth": {
+            "evidence_id": "ev_592236",
+            "corroborator": "Adrian Harlow"
+          },
+          "Adrian Harlow": {
+            "evidence_id": "ev_446076",
+            "corroborator": "Quinn Iverson"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.6042,
+    "triangle": 1.0,
+    "alibi": 0.6667,
+    "elimination": 0.25,
+    "sw": 1.0,
+    "wv": 0.0,
+    "sr": 0.0
+  }
+}

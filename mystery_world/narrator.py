@@ -149,21 +149,30 @@ _BUDGET_DESCRIPTIONS = [
     "The department has authorized {budget} actions for this investigation.",
     "You are allowed exactly {budget} actions before you must make your accusation.",
 ]
+_TIMING_NOTES = [
+    "The night's events began at {start_clock}. Bear in mind: any two neighbouring rooms in this estate are some {step_min} minutes apart on foot.",                 
+    "The household had been assembled since {start_clock}. Adjacent rooms throughout the estate are connected by passages of roughly {step_min} minutes' walk — a detail the attentive mind will not overlook.",                                                           
+    "By the hall clock, the evening commenced at {start_clock}. You would do well to note, mon ami, that rooms adjoining one another are no more than {step_min} minutes on foot.",
+    "It was {start_clock} when the company gathered. Each room's nearest neighbour lies some {step_min} minutes' walk away — in a house like this, that gap may prove everything.",
+    "The affair began, as best we can determine, at {start_clock}. The estate's rooms are linked by corridors and passages, each roughly {step_min} minutes apart.", 
+    "The guests had been confined to the estate since {start_clock}. Note well: no two adjacent rooms in this house are more than {step_min} minutes apart on foot.",
+    "From {start_clock} onward, the household was sealed. A useful observation: each room is some {step_min} minutes' walk from those directly adjoining it.",       
+    "The clock in the drawing room showed {start_clock} when the trouble began. The rooms here are close — neighbouring ones lie roughly {step_min} minutes apart on foot.",       
+    "By all accounts the evening was under way by {start_clock}. In a house of this size, adjacent rooms are perhaps {step_min} minutes apart — a trifle, unless one is in a hurry.",
+    "The sequence of events stretches back to {start_clock}. The house is not labyrinthine, but each step between neighbouring rooms demands some {step_min} minutes of travel.",  
+]    
+_ALL_SLOTS = [_TITLES, _CRIME_DESCRIPTIONS, _TIME_DESCRIPTIONS, _SUSPECT_INTROS, _ROLE_AND_TASK, _BUDGET_DESCRIPTIONS, _TIMING_NOTES]
+_PRIMES = [1, 7, 13, 31, 47, 61, 79]
 
-_ALL_SLOTS = [_TITLES, _CRIME_DESCRIPTIONS, _TIME_DESCRIPTIONS, _SUSPECT_INTROS, _ROLE_AND_TASK, _BUDGET_DESCRIPTIONS]
-_PRIMES = [1, 7, 13, 31, 47, 61]
 
-
-def _step_to_time(step: int, num_steps: int) -> str:                                                                                        
-    """Convert a simulation step number to a clock time (7 PM – 1 AM window)."""                                                            
-    total_minutes = 360  # 6-hour evening window          
-    minutes_in = int((step / max(num_steps, 1)) * total_minutes)                                                                            
-    total = 19 * 60 + minutes_in  # start at 7:00 PM      
-    h, m = divmod(total, 60)                                                                                                                
-    h = h % 24                              
-    period = "AM" if h < 12 else "PM"                                                                                                       
-    h12 = h % 12 or 12                                    
-    return f"{h12}:{m:02d} {period}"    
+def _step_to_clock(step: int, world_start_hour: int, step_duration_minutes: int) -> str:
+    """Convert a step index to a clock string using world config."""
+    total_minutes = world_start_hour * 60 + step * step_duration_minutes
+    total_minutes %= 24 * 60
+    h, m = divmod(total_minutes, 60)
+    period = "AM" if h < 12 else "PM"                               
+    h12 = h % 12 or 12                                            
+    return f"{h12}:{m:02d} {period}"
 
 def render_initial_briefing(env: "MysteryEnvironment") -> str:
     """Opening scene description given to the agent as episode start."""
@@ -182,7 +191,7 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
 
     # Deterministically select one variant per slot from the seed.
     # Each slot uses a different prime multiplier to decorrelate choices.
-    _PRIMES = [1, 7, 13, 31, 47, 61]
+    _PRIMES = [1, 7, 13, 31, 47, 61, 79]
     def _pick(slot_idx):
         pool = _ALL_SLOTS[slot_idx]
         return (state.seed * _PRIMES[slot_idx]) % len(pool)
@@ -190,7 +199,11 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
     fmt = {
         "victim": victim_name,
         "location": loc_name,
-        "time_of_death": _step_to_time(state.murder_step, state.config.num_time_steps),
+        "time_of_death": _step_to_clock(
+            state.murder_step,
+            state.config.world_start_hour,
+            state.config.step_duration_minutes,
+        ),
         "suspects": suspect_names,
         "budget": state.config.max_agent_actions,
     }
@@ -209,21 +222,29 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
         _BUDGET_DESCRIPTIONS[_pick(5)].format(**fmt),
     ])
 
-    # Action list (fixed across all styles — agents parse this)
-    lines.extend([
+    # Action list (fixed across all styles — agents parse this)     
+    _start_clock = _step_to_clock(0, state.config.world_start_hour, state.config.step_duration_minutes)                
+    timing_note = _TIMING_NOTES[_pick(6)].format(                   
+        start_clock=_start_clock,                                   
+        step_min=state.config.step_duration_minutes,                
+    )                       
+    lines.extend([                                                
         "",
+        timing_note,
+        "",                 
         "Available actions:",
-        "  MOVE <location>          — move to an adjacent room",
-        "  EXAMINE_LOCATION         — look around",
-        "  EXAMINE_OBJECT <name>    — inspect a specific object",
-        "  TALK_TO <name>           — interrogate a character",
-        "  SEARCH_FOR_EVIDENCE      — thorough search of current room",
-        "  TAKE_OBJECT <name>       — pick up a portable object",
-        "  CHECK_INVENTORY          — review collected evidence",
-        "  WAIT                     — pass time",
-        "  ACCUSE <suspect> <weapon> <location>  — make final accusation",
-        "",
-    ])
+        "  EXAMINE_LOCATION                       — look around current room",                                         
+        "  EXAMINE_OBJECT <name>                  — inspect a specific object",
+        "  TALK_TO <name>                         — interrogate a character",  
+        "  TAKE_OBJECT <name>                     — pick up a portable object",      
+        "  CHECK_INVENTORY                        — review collected evidence",                                        
+        "  ANALYZE <evidence_id>                  — assess how fresh a piece of evidence is",                          
+        "  TRAVEL_TIME <from> <to> [at <time>]    — minimum travel time between two rooms",  
+        "  CHECK_ROUTE <from> <to> <time>         — was the direct passage open at a given time?",                     
+        "  WAIT                                   — pass time",     
+        "  ACCUSE <suspect> <weapon> <location>   — make final accusation",
+        "",                 
+    ])     
 
     # Current location observation
     lines.append(env.observe_location())

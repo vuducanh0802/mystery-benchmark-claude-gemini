@@ -1,0 +1,353 @@
+{
+  "id": "medium_seed_0",
+  "complexity": "MEDIUM",
+  "seed": 0,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Fern Montague",
+    "weapon": "marble bookend",
+    "location": "Clock Tower"
+  },
+  "alibi_claims": [
+    {
+      "location": "Billiard Room",
+      "time": "8:00 PM"
+    },
+    {
+      "location": "Wine Pantry",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Helena Quinlan",
+      "evidence_id": "ev_163293",
+      "corroborator": "Petra Prescott"
+    },
+    {
+      "suspect": "Petra Prescott",
+      "evidence_id": "ev_986858",
+      "corroborator": "Rosalind Sterling"
+    },
+    {
+      "suspect": "Rosalind Sterling",
+      "evidence_id": "ev_706359",
+      "corroborator": "Helena Quinlan"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_693431",
+      "ev_259503"
+    ],
+    "wv_evidence": [
+      "ev_619918",
+      "ev_178991"
+    ],
+    "sr_evidence": [
+      "ev_178819"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Billiard Room",
+      "claimed_time": "8:00 PM",
+      "contradiction_evidence": [
+        "ev_178819"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "marble bookend"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "window ledge"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "coat rack"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 13,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "footstool"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 15,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 17,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 18,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "porcelain vase"
+      }
+    },
+    {
+      "step": 19,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 20,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 21,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 22,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Montague",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 23,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 24,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 25,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 26,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 27,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Prescott",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 28,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 29,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 30,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 31,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Sterling",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 32,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 33,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 34,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Helena Quinlan",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 35,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Fern Montague",
+        "weapon_name": "marble bookend",
+        "location_name": "Clock Tower",
+        "suspect_weapon_evidence": [
+          "ev_693431",
+          "ev_259503"
+        ],
+        "weapon_victim_evidence": [
+          "ev_619918",
+          "ev_178991"
+        ],
+        "suspect_room_evidence": [
+          "ev_178819"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Billiard Room",
+          "claimed_time": "8:00 PM",
+          "contradiction_evidence": [
+            "ev_178819"
+          ]
+        },
+        "eliminations": {
+          "Helena Quinlan": {
+            "evidence_id": "ev_163293",
+            "corroborator": "Petra Prescott"
+          },
+          "Petra Prescott": {
+            "evidence_id": "ev_986858",
+            "corroborator": "Rosalind Sterling"
+          },
+          "Rosalind Sterling": {
+            "evidence_id": "ev_706359",
+            "corroborator": "Helena Quinlan"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.95,
+    "triangle": 3.0,
+    "alibi": 0.6667,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

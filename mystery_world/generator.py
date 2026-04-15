@@ -24,21 +24,111 @@ import numpy as np
 
 from mystery_world import AssetPool, ComplexityConfig, DEFAULT_ASSET_POOL
 from mystery_world.entities import (
+    AlibiClaim,
     Character,
     CharacterRole,
+    EdgeRelevance,
+    EdgeType,
     Evidence,
     EvidenceState,
     EvidenceType,
     Location,
     LocationTag,
+    PhysicalTraits,
     Relationship,
+    RouteConstraint,
+    TemporalLabel,
     TimelineEntry,
-    WorldObject
+    TimeStyle,
+    WitnessStatement,
+    WorldObject,
 )
 from mystery_world.world import WorldState
 
 def _uid(prefix: str, rng: np.random.Generator) -> str:
     return f"{prefix}_{rng.integers(100000, 999999)}"
+
+# Neutral-sounding names for objects that host evidence. These must NOT hint
+# that evidence is present.
+_NEUTRAL_HOST_OBJECTS = [
+    "side table", "coat rack", "worn rug", "window ledge",
+    "fireplace mantel", "writing desk", "umbrella stand",
+    "wooden stool", "wall mirror", "storage trunk",
+    "armchair", "floor lamp", "serving tray", "hat stand",
+    "porcelain vase", "shelf of books", "old radiator",
+    "heavy curtain", "wicker basket", "footstool",
+]
+
+# ---------------------------------------------------------------------------
+# Surface label helper (Locard)
+# ---------------------------------------------------------------------------
+
+def _pick_surface_label(
+    contact_ts: float,
+    murder_ts: float,
+    threshold: float,
+    config: ComplexityConfig,
+) -> TemporalLabel:
+    is_fresh = abs(contact_ts - murder_ts) < threshold
+    if config.evidence_ambiguity <= 0.1:
+        return TemporalLabel.CLEARLY_FRESH if is_fresh else TemporalLabel.CLEARLY_STALE
+    else:
+        return TemporalLabel.AMBIGUOUS
+
+
+# ---------------------------------------------------------------------------
+# Time utilities (temporal reasoning)
+# ---------------------------------------------------------------------------
+
+_NAMED_PERIODS = [
+    (0,  2,  "before dinner"),
+    (3,  5,  "after dinner"),
+    (6,  9,  "late in the evening"),
+    (10, 13, "near midnight"),
+]
+
+
+def _step_to_named_period(step: int) -> str:
+    for lo, hi, name in _NAMED_PERIODS:
+        if lo <= step <= hi:
+            return name
+    return "late in the night"
+
+
+def _step_to_clock_str_gen(step: int, world_start_hour: int) -> str:
+    """Local copy to avoid circular import with world.py."""
+    total_minutes = world_start_hour * 60 + step * 30
+    total_minutes %= 24 * 60
+    hour, minute = divmod(total_minutes, 60)
+    meridiem = "AM" if hour < 12 else "PM"
+    display_hour = hour % 12 or 12
+    return f"{display_hour}:{minute:02d} {meridiem}"
+
+
+def _make_stated_time(
+    step: int,
+    anchor_events: dict[str, int],
+    style: TimeStyle,
+    world_start_hour: int,
+    rng: np.random.Generator,
+) -> str:
+    clock = _step_to_clock_str_gen(step, world_start_hour)
+    if style == TimeStyle.CLOCK:
+        return f"at {clock}"
+    elif style == TimeStyle.NAMED_PERIOD:
+        return _step_to_named_period(step)
+    else:  # RELATIVE
+        if not anchor_events:
+            return f"at {clock}"
+        anchor_name, anchor_step = min(
+            anchor_events.items(), key=lambda kv: abs(kv[1] - step)
+        )
+        delta_steps = step - anchor_step
+        delta_min = abs(delta_steps) * 30
+        if delta_min == 0:
+            return f"just as {anchor_name}"
+        direction = "after" if delta_steps > 0 else "before"
+        return f"about {delta_min} minutes {direction} {anchor_name}"
 
 # ---------------------------------------------------------------------------
 # Location graph
@@ -117,7 +207,40 @@ def _generate_characters(
         )
         characters[cid] = char
         char_list.append(char)
-    
+
+    # Assign physical traits — initially unique per character
+    builds = list(rng.choice(pool.build_types, size=min(total, len(pool.build_types)), replace=False))
+    hairs  = list(rng.choice(pool.hair_types,  size=min(total, len(pool.hair_types)),  replace=False))
+    hands  = list(rng.choice(pool.hand_types,  size=min(total, len(pool.hand_types)),  replace=False))
+    for i, char in enumerate(char_list):
+        char.physical_traits = PhysicalTraits(
+            build=str(builds[i]),
+            hair=str(hairs[i]),
+            hands=str(hands[i]),
+        )
+
+    # MEDIUM+: each of the culprit's trait values must appear on at least one other
+    # suspect so no single trait uniquely identifies the culprit.
+    # char_list[1] = culprit, char_list[2:1+num_suspects] = other suspects.
+    if config.evidence_ambiguity > 0.1:
+        culprit_char = char_list[1]
+        other_suspects = char_list[2:1 + config.num_suspects]
+        if other_suspects:
+            for trait_name in ("build", "hair", "hands"):
+                culprit_val = getattr(culprit_char.physical_traits, trait_name)
+                sharers = [
+                    c for c in other_suspects
+                    if getattr(c.physical_traits, trait_name) == culprit_val
+                ]
+                if not sharers:
+                    target = other_suspects[int(rng.integers(0, len(other_suspects)))]
+                    pt = target.physical_traits
+                    target.physical_traits = PhysicalTraits(
+                        build=culprit_val if trait_name == "build" else pt.build,
+                        hair=culprit_val if trait_name == "hair" else pt.hair,
+                        hands=culprit_val if trait_name == "hands" else pt.hands,
+                    )
+
     # Assign roles
     victim = char_list[0]
     victim.roles.append(CharacterRole.VICTIM)
@@ -138,6 +261,10 @@ def _generate_characters(
             char_list[i].roles.append(CharacterRole.WITNESS)
 
     # Assign motives to suspects
+    # Mark all suspects as having alibis (claims are filled in generate_mystery)
+    for sc in [c for c in char_list if CharacterRole.SUSPECT in c.roles]:
+        sc.has_alibi = True
+
     motives = list(rng.choice(pool.motive_templates, size=min(config.num_suspects, len(pool.motive_templates)), replace=False))
     suspect_chars = [c for c in char_list if CharacterRole.SUSPECT in c.roles]
     for i, sc in enumerate(suspect_chars):
@@ -180,184 +307,312 @@ def _generate_evidence_and_objects(
     murder_weapon_id: str,
     murder_location_id: str,
     locations: dict[str, Location],
+    characters: dict[str, Character],
+    murder_step: int = 0,
 ) -> tuple[dict[str, Evidence], dict[str, WorldObject]]:
 
     evidence: dict[str, Evidence] = {}
     objects: dict[str, WorldObject] = {}
     non_culprit_suspects = [s for s in suspect_ids if s != culprit_id]
+    murder_ts = float(murder_step)
+    threshold = config.freshness_threshold
+
+    def _traits(cid: str) -> PhysicalTraits:
+        return characters[cid].physical_traits
 
     def _sample_difficulty() -> float:
         return float(rng.uniform(config.evidence_difficulty_min, config.evidence_difficulty_max))
 
-    # --- Murder weapon ---
-    weapon_names = list(rng.choice(pool.weapon_templates, size=min(config.num_weapons, len(pool.weapon_templates)), replace=False))
+    def _label(ts: float) -> TemporalLabel:
+        return _pick_surface_label(ts, murder_ts, threshold, config)
+
+    # --- Murder weapon object ---
+    weapon_names = list(rng.choice(
+        pool.weapon_templates,
+        size=min(config.num_weapons, len(pool.weapon_templates)),
+        replace=False,
+    ))
     murder_weapon_name = str(weapon_names[0])
-    # After the murder the culprit moves the weapon away (harder difficulties)
-    # At easy/trivial the weapon stays at the scene; at harder levels it's moved.
     if config.culprit_tamper_prob > 0.0 and len(location_ids) > 1:
-        other_locs = [l for l in location_ids if l != murder_location_id]
-        weapon_loc_id = str(rng.choice(other_locs))                                                                                         
-    else:                                                                                                                                   
-        weapon_loc_id = murder_location_id                                                                                                  
-                                                                                                                                            
-    mw_obj = WorldObject(                                                                                                                   
-        id=murder_weapon_id,                                                                                                                
-        name=murder_weapon_name,                                                                                                            
+        weapon_loc_id = str(rng.choice([l for l in location_ids if l != murder_location_id]))
+    else:
+        weapon_loc_id = murder_location_id
+
+    mw_obj = WorldObject(
+        id=murder_weapon_id, name=murder_weapon_name,
         description=f"A {murder_weapon_name}.",
-        location_id=weapon_loc_id,                                                                                                          
-        is_weapon=True,                                   
-        is_murder_weapon=True,              
-    )        
+        location_id=weapon_loc_id, is_weapon=True, is_murder_weapon=True,
+    )
     objects[murder_weapon_id] = mw_obj
 
-    # Evidence on the murder weapon — deceptive traces possible
-    if non_culprit_suspects and rng.random() < config.evidence_ambiguity:
-        mw_linked_id = str(rng.choice(non_culprit_suspects))
-    else:
-        mw_linked_id = culprit_id
+    # --- SUSPECT_WEAPON evidence (trait-based grip marks on weapon) ---
+    # Primary piece always links to the culprit; ambiguity applies to extra pieces only.
+    mw_linked_id = culprit_id    
 
     murder_loc = locations.get(murder_location_id)
+    mw_traits = _traits(mw_linked_id)
     mw_ev = Evidence(
         id=_uid("ev", rng),
         name=f"traces on the {murder_weapon_name}",
         evidence_type=EvidenceType.PHYSICAL,
         location_id=murder_location_id,
         linked_character_id=mw_linked_id,
-        description=f"Forensic traces recovered from the {murder_weapon_name}.",
+        description=f"Grip marks from someone with {mw_traits.hands} found on the {murder_weapon_name}.",
         discovery_difficulty=_sample_difficulty(),
         weather_sensitive=bool(murder_loc and murder_loc.weather_exposed),
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.SUSPECT_WEAPON,
+            subject_ids=[mw_linked_id, murder_weapon_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
     )
     evidence[mw_ev.id] = mw_ev
     mw_obj.evidence_id = mw_ev.id
 
-    # --- Other weapons (non-murder) — same generic description style ---
+    # --- WEAPON_VICTIM evidence (victim blood on weapon) ---
+    wv_ev = Evidence(
+        id=_uid("ev", rng),
+        name=f"victim's blood on the {murder_weapon_name}",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=weapon_loc_id,
+        linked_character_id=victim_id,
+        description=f"Blood and tissue matching the victim found on the {murder_weapon_name}.",
+        discovery_difficulty=_sample_difficulty(),
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.WEAPON_VICTIM,
+            subject_ids=[murder_weapon_id, victim_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
+    )
+    evidence[wv_ev.id] = wv_ev
+
+    # --- SUSPECT_ROOM evidence (culprit footprint in murder room) ---
+    culprit_traits = _traits(culprit_id)
+    murder_loc_name = murder_loc.name if murder_loc else "crime scene"
+    sr_ev = Evidence(
+        id=_uid("ev", rng),
+        name=f"shoe scuffs in the {murder_loc_name}",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=murder_location_id,
+        linked_character_id=culprit_id,
+        description=f"Shoe prints from a {culprit_traits.build} person found in the room.",
+        discovery_difficulty=_sample_difficulty(),
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.SUSPECT_ROOM,
+            subject_ids=[culprit_id, murder_location_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
+    )
+    evidence[sr_ev.id] = sr_ev
+
+    # --- Other weapons (non-murder) ---
     for i in range(1, config.num_weapons):
         if i < len(weapon_names):
             wid = _uid("obj", rng)
-            w = WorldObject(
-                id=wid,
-                name=str(weapon_names[i]),
+            objects[wid] = WorldObject(
+                id=wid, name=str(weapon_names[i]),
                 description=f"A {weapon_names[i]}.",
                 location_id=str(rng.choice(location_ids)),
-                is_weapon=True,
-                is_murder_weapon=False,
+                is_weapon=True, is_murder_weapon=False,
             )
-            objects[wid] = w
 
-    # --- Physical evidence ---
-    ev_templates = [
-        "fingerprint on doorknob",
-        "bloodstain on carpet",
-        "torn fabric from clothing",
-        "footprint near the scene",
-        "hair strand",
-        "scratches on nearby furniture",
-        "skin cells under victim's nails",
-        "fiber transfer on victim's coat",
-        "smudged handprint on wall",
-        "cigarette butt near the scene",
-        "partial shoe impression in mud",
-        "broken button from a jacket",
-        "perfume residue on victim's clothing",
-        "small paint chip from a tool",
-        "glass fragment with partial prints",
+    # --- Additional physical evidence (trait-based descriptions) ---
+    ev_trait_templates = [
+        ("fingerprint on doorknob",     "A partial print from someone with {hands} found on a doorknob."),
+        ("hair strand",                  "A strand of {hair} caught on a rough surface."),
+        ("torn fabric from clothing",    "A torn fabric scrap — looks like it belongs to someone {build}."),
+        ("footprint near the scene",     "A footprint suggesting a {build} individual."),
+        ("smudged handprint on wall",    "A smudged handprint from someone with {hands}."),
+        ("scratches on nearby furniture","Scratches consistent with someone who has {hands}."),
+        ("fiber transfer on victim's coat","Fibers transferred by contact with a {build} person."),
+        ("cigarette butt near the scene","A cigarette butt consistent with someone who has {hair}."),
+        ("partial shoe impression in mud","A shoe impression suggesting a {build} person."),
+        ("broken button from a jacket",  "A button from a garment sized for someone {build}."),
     ]
     n_culprit_ev = max(2, config.num_objects // 3)
     for i in range(n_culprit_ev):
-        tmpl_name = ev_templates[i % len(ev_templates)]
         eid = _uid("ev", rng)
         if non_culprit_suspects and rng.random() < config.evidence_ambiguity:
             linked_id = str(rng.choice(non_culprit_suspects))
         else:
             linked_id = culprit_id
-        ev = Evidence(
-            id=eid,
-            name=tmpl_name,
+
+        edge_roll = rng.random()
+        if edge_roll < 0.5:
+            edge, subj = EdgeType.SUSPECT_WEAPON, [linked_id, murder_weapon_id]
+        elif edge_roll < 0.8:
+            edge, subj = EdgeType.SUSPECT_ROOM, [linked_id, murder_location_id]
+        else:
+            edge, subj = EdgeType.WEAPON_VICTIM, [murder_weapon_id, victim_id]
+
+        contact_ts = (
+            murder_ts + float(rng.uniform(-0.5, 0.5))
+            if linked_id == culprit_id
+            else murder_ts - float(rng.uniform(threshold, threshold * 3))
+        )
+
+        t_name, t_desc = ev_trait_templates[i % len(ev_trait_templates)]
+        lt = _traits(linked_id)
+        desc = t_desc.format(hands=lt.hands, hair=lt.hair, build=lt.build)
+
+        evidence[eid] = Evidence(
+            id=eid, name=t_name,
             evidence_type=EvidenceType.PHYSICAL,
             location_id=str(rng.choice(location_ids)),
             linked_character_id=linked_id,
-            description=f"{tmpl_name.capitalize()} found during investigation.",
+            description=desc,
             discovery_difficulty=_sample_difficulty(),
             weather_sensitive=rng.random() < 0.3,
+            relevance=EdgeRelevance(
+                edge_type=edge, subject_ids=subj,
+                contact_timestamp=contact_ts, surface_label=_label(contact_ts),
+            ),
         )
-        evidence[eid] = ev
 
-    # --- Testimonial evidence (witness accounts) ---
-    for sid in suspect_ids:
-        if sid == culprit_id:
-            continue
-        eid = _uid("ev", rng)
-        reliable = rng.random() >= config.testimony_unreliability
-        ev = Evidence(
-            id=eid,
-            name=f"testimony about suspect movements",
-            evidence_type=EvidenceType.TESTIMONIAL,
-            location_id=str(rng.choice(location_ids)),
+    # --- Innocent alibi evidence (SUSPECT_ELSEWHERE) ---
+    # Per innocent: one physical trace in a non-murder alibi room, naming a
+    # corroborator. Agent must EXAMINE the trace AND TALK_TO the corroborator
+    # for the elimination to count (enforced in scoring).
+    non_murder_locs = [lid for lid in location_ids if lid != murder_location_id]
+    physical_alibi_templates = [
+        ("coat hanging on the rack",          "A coat belonging to {name}, left here. {corr} was seen with them here at the time."),
+        ("signed visitor register entry",     "The visitor register shows {name} signed in, countersigned by {corr}."),
+        ("half-finished cup of tea",          "A cup recently used by {name}. {corr} recalls sharing tea with them here."),
+        ("personal pocket watch left behind", "A pocket watch engraved with {name}'s initials. {corr} handed it back to them here."),
+        ("reading glasses on the table",      "Reading glasses belonging to {name}. {corr} noticed them leave the glasses here."),
+        ("umbrella in the stand",             "An umbrella left here by {name}. {corr} helped them stow it."),
+    ]
+    for i, sid in enumerate(non_culprit_suspects):
+        if not non_murder_locs:
+            break
+        alibi_room_id = str(rng.choice(non_murder_locs))
+        innocent = characters[sid]
+
+        # Prefer another innocent suspect as corroborator; fall back to a
+        # bystander NPC (INNOCENT + WITNESS, not SUSPECT) for small cases
+        # (e.g. TRIVIAL has only 1 innocent suspect).
+        corr_candidates = [
+            c for c in suspect_ids
+            if c != sid and c != culprit_id and c != victim_id
+        ]
+        if not corr_candidates:
+            corr_candidates = [
+                cid for cid, ch in characters.items()
+                if CharacterRole.INNOCENT in ch.roles
+                and CharacterRole.SUSPECT not in ch.roles
+                and cid != victim_id
+            ]
+        corroborator_id = (
+            str(rng.choice(corr_candidates)) if corr_candidates else ""
+        )
+        corroborator_name = (
+            characters[corroborator_id].full_name if corroborator_id else "someone"
+        )
+
+        t_name, t_desc = physical_alibi_templates[i % len(physical_alibi_templates)]
+        phys_eid = _uid("ev", rng)
+        evidence[phys_eid] = Evidence(
+            id=phys_eid, name=t_name,
+            evidence_type=EvidenceType.PHYSICAL,
+            location_id=alibi_room_id,
             linked_character_id=sid,
-            description=f"A witness account regarding a suspect's whereabouts.",
+            corroborator_id=corroborator_id or None,
+            description=t_desc.format(
+                name=innocent.full_name, corr=corroborator_name
+            ),
             discovery_difficulty=_sample_difficulty(),
-            is_reliable=reliable,
+            relevance=EdgeRelevance(
+                edge_type=EdgeType.SUSPECT_ELSEWHERE,
+                subject_ids=[sid, alibi_room_id],
+                contact_timestamp=murder_ts,
+                surface_label=_label(murder_ts),
+            ),
         )
-        evidence[eid] = ev
 
-    # --- Documentary evidence ---
+    # --- Documentary evidence (no relevance — motive support only) ---
     doc_templates = [
-        "a threatening letter",
-        "a financial ledger entry",
-        "a diary page with incriminating passage",
-        "a forged alibi note",
-        "a signed insurance policy",
-        "a photograph with a revealing timestamp",
-        "a bank withdrawal receipt",
-        "a phone message transcript",
-        "a torn contract",
-        "a secret correspondence",
+        "a threatening letter", "a financial ledger entry",
+        "a diary page with incriminating passage", "a forged alibi note",
+        "a signed insurance policy", "a photograph with a revealing timestamp",
+        "a bank withdrawal receipt", "a phone message transcript",
+        "a torn contract", "a secret correspondence",
     ]
     for i in range(min(2, config.motive_layers)):
         eid = _uid("ev", rng)
-        if non_culprit_suspects and rng.random() < config.evidence_ambiguity:
-            doc_linked_id = str(rng.choice(non_culprit_suspects))
-        else:
-            doc_linked_id = culprit_id
-        ev = Evidence(
-            id=eid,
-            name=str(rng.choice(doc_templates)),
+        doc_linked = (
+            str(rng.choice(non_culprit_suspects))
+            if non_culprit_suspects and rng.random() < config.evidence_ambiguity
+            else culprit_id
+        )
+        evidence[eid] = Evidence(
+            id=eid, name=str(rng.choice(doc_templates)),
             evidence_type=EvidenceType.DOCUMENTARY,
             location_id=str(rng.choice(location_ids)),
-            linked_character_id=doc_linked_id,
-            description=f"A document that may shed light on someone's motive.",
+            linked_character_id=doc_linked,
+            description="A document that may shed light on someone's motive.",
             discovery_difficulty=_sample_difficulty(),
         )
-        evidence[eid] = ev
 
     # --- Red herrings ---
     for _ in range(config.num_red_herrings):
         eid = _uid("ev", rng)
-        decoy_suspect = str(rng.choice(suspect_ids))
-        ev = Evidence(
-            id=eid,
-            name=f"suspicious {rng.choice(['note', 'item', 'mark', 'stain'])}",
+        decoy = str(rng.choice(suspect_ids))
+        evidence[eid] = Evidence(
+            id=eid, name=f"suspicious {rng.choice(['note', 'item', 'mark', 'stain'])}",
             evidence_type=EvidenceType(int(rng.integers(1, 5))),
             location_id=str(rng.choice(location_ids)),
-            linked_character_id=decoy_suspect,
-            is_red_herring=True,
+            linked_character_id=decoy, is_red_herring=True,
             description="Something that looks incriminating but is ultimately misleading.",
             discovery_difficulty=float(rng.uniform(0.1, 0.4)),
+            relevance=EdgeRelevance(
+                edge_type=EdgeType(int(rng.integers(1, 4))),
+                subject_ids=[decoy, str(rng.choice(location_ids + [murder_weapon_id]))],
+                contact_timestamp=murder_ts + float(rng.uniform(-0.5, 0.5)),
+                surface_label=TemporalLabel.AMBIGUOUS,
+            ),
         )
-        evidence[eid] = ev
 
-    # --- Generic objects ---
-    obj_names = list(rng.choice(pool.object_templates, size=min(config.num_objects, len(pool.object_templates)), replace=False))
-    for oname in obj_names:
+    # --- Link every evidence item to a host object ---
+    # 1. Collect evidence that already has a host
+    hosted_eids: set[str] = {
+        obj.evidence_id for obj in objects.values() if obj.evidence_id
+    }
+
+    # 2. For each unhosted evidence, create a neutral host in its location
+    neutral_names = list(rng.permutation(_NEUTRAL_HOST_OBJECTS))
+    neutral_idx = 0
+    for eid, ev in evidence.items():
+        if eid in hosted_eids:
+            continue
+        obj_name = neutral_names[neutral_idx % len(neutral_names)]
+        neutral_idx += 1
         oid = _uid("obj", rng)
-        obj = WorldObject(
+        objects[oid] = WorldObject(
             id=oid,
-            name=str(oname),
-            description=f"A {oname} lying here.",
+            name=obj_name,
+            description=f"A {obj_name} sitting here.",
+            location_id=ev.location_id,
+            portable=False,
+            evidence_id=eid,
+        )
+        hosted_eids.add(eid)
+
+    # 3. Add decoy objects (no evidence) to fill rooms up to the per-room cap
+    decoy_names = list(rng.choice(
+        pool.object_templates,
+        size=min(config.num_objects, len(pool.object_templates)),
+        replace=False,
+    ))
+    for oname in decoy_names:
+        oid = _uid("obj", rng)
+        objects[oid] = WorldObject(
+            id=oid, name=str(oname), description=f"A {oname} lying here.",
             location_id=str(rng.choice(location_ids)),
             portable=rng.random() < 0.7,
         )
-        objects[oid] = obj
 
     return evidence, objects
 
@@ -978,7 +1233,9 @@ def generate_mystery(
         evidence, objects = _generate_evidence_and_objects(
             config, pool, rng, location_ids,
             culprit.id, victim.id, suspect_ids,
-            murder_weapon_id, murder_location_id, locations
+            murder_weapon_id, murder_location_id, locations,
+            characters=characters,
+            murder_step=murder_step,
         )
 
         # 5b. Crime-scene convergent clues when body was moved
@@ -989,21 +1246,57 @@ def generate_mystery(
             )
             evidence.update(cs_evidence)
 
+        body_obj_id = _uid("obj", rng)
+        weapon_obj = objects.get(murder_weapon_id)
+        objects[body_obj_id] = WorldObject(
+            id=body_obj_id,
+            name=f"body of {victim.full_name}",
+            description=(
+                f"The lifeless body of {victim.full_name}. "
+                f"Examining the wounds suggests the cause of death was "
+                f"inflicted by a sharp or heavy instrument."
+            ),
+            location_id=body_location_id,
+            portable=False,
+        )
+        # Link crime-scene evidence to the body object where possible
+        if body_location_id != murder_location_id:
+            for eid, ev in cs_evidence.items():
+                if ev.location_id == body_location_id:
+                    hosted = any(o.evidence_id == eid for o in objects.values())
+                    if not hosted:
+                        objects[body_obj_id].evidence_id = eid
+                        break
+        victim.location_id = body_location_id
+
         # 6. Alibis
         _generate_alibis(config, rng, characters, timeline, culprit.id, murder_step)
 
         # 7. Witnesses
         _assign_witnesses(characters, timeline, rng)
 
-        # 8. Populate location manifests
+        # Populate location manifests (characters + objects, with per-room cap)
         for cid, char in characters.items():
             loc = locations.get(char.location_id)
             if loc and cid not in loc.characters_here:
                 loc.characters_here.append(cid)
-        
-        for oid, obj in objects.items():
-            loc = locations.get(obj.location_id)
+
+        evidence_obj_ids = [oid for oid, o in objects.items() if o.evidence_id]
+        decoy_obj_ids = [oid for oid, o in objects.items() if not o.evidence_id]
+
+        # Evidence-bearing objects are always placed (they're required for scoring)
+        for oid in evidence_obj_ids:
+            loc = locations.get(objects[oid].location_id)
             if loc and oid not in loc.objects_here:
+                loc.objects_here.append(oid)
+
+        # Decoys fill up to max_objects_per_room
+        for oid in decoy_obj_ids:
+            loc = locations.get(objects[oid].location_id)
+            if (
+                loc and oid not in loc.objects_here
+                and len(loc.objects_here) < config.max_objects_per_room
+            ):
                 loc.objects_here.append(oid)
 
         # 9. Initial weather
@@ -1026,9 +1319,186 @@ def generate_mystery(
             murder_location_id=murder_location_id,
             body_location_id=body_location_id,
             murder_step=murder_step,
+            murder_timestamp=float(murder_step),
+            freshness_threshold=config.freshness_threshold,
             motive=motive,
         )
+        # --- Anchor events ---
+        anchor_events: dict[str, int] = {}
+        if config.num_time_steps >= 4:
+            anchor_events["the dinner bell"] = max(0, murder_step - 3)
+        if config.num_time_steps >= 6:
+            anchor_events["the clock striking the hour"] = max(0, murder_step - 1)
+        anchor_events["the scream"] = murder_step
+        state.anchor_events = anchor_events
 
+        world_start_hour = config.world_start_hour
+        styles = [TimeStyle.CLOCK, TimeStyle.NAMED_PERIOD, TimeStyle.RELATIVE]
+        route_constraints: list[RouteConstraint] = []
+        constraint_reasons = [
+            "the corridor was locked from the inside",
+            "the garden gate was bolted shut",
+            "a servant had blocked the passage with a trolley",
+            "the door had swollen shut from the rain",
+        ]
+        murder_loc_obj = state.locations.get(murder_location_id)
+
+        # --- Culprit alibi ---
+        if CharacterRole.SUSPECT in culprit.roles and murder_loc_obj:
+            if config.evidence_ambiguity <= 0.1:
+                # TRIVIAL/EASY — Type A: one claim at murder_step claiming a different room
+                alibi_loc = next(
+                    (l for l in state.locations.values()
+                     if l.id != murder_location_id and l.id != body_location_id),
+                    None,
+                )
+                if alibi_loc:
+                    style = TimeStyle(styles[int(rng.integers(0, 3))])
+                    culprit.alibi_claims = [AlibiClaim(
+                        location_name=alibi_loc.name,
+                        step=murder_step,
+                        clock_time_str=_step_to_clock_str_gen(murder_step, world_start_hour),
+                        stated_time=_make_stated_time(murder_step, anchor_events, style, world_start_hour, rng),
+                        time_style=style,
+                    )]
+            else:
+                # MEDIUM+ — Type B: two claims bracketing the murder through adjacent rooms
+                adjacent_to_murder = [
+                    state.locations[adj_id]
+                    for adj_id in murder_loc_obj.adjacent_ids
+                    if adj_id in state.locations
+                ]
+                if len(adjacent_to_murder) >= 2:
+                    room_a, room_b = adjacent_to_murder[0], adjacent_to_murder[1]
+                    before_step = max(0, murder_step - 1)
+                    after_step = min(config.num_time_steps - 1, murder_step + 1)
+                    style_a = TimeStyle(styles[int(rng.integers(0, 3))])
+                    style_b = TimeStyle(styles[int(rng.integers(0, 3))])
+                    culprit.alibi_claims = [
+                        AlibiClaim(
+                            location_name=room_a.name,
+                            step=before_step,
+                            clock_time_str=_step_to_clock_str_gen(before_step, world_start_hour),
+                            stated_time=_make_stated_time(before_step, anchor_events, style_a, world_start_hour, rng),
+                            time_style=style_a,
+                        ),
+                        AlibiClaim(
+                            location_name=room_b.name,
+                            step=after_step,
+                            clock_time_str=_step_to_clock_str_gen(after_step, world_start_hour),
+                            stated_time=_make_stated_time(after_step, anchor_events, style_b, world_start_hour, rng),
+                            time_style=style_b,
+                        ),
+                    ]
+                    # If room_a and room_b are directly adjacent (alternative route exists),
+                    # block that passage to force the route through the crime scene.                                                                                                                                                                                                                                                                                                                                           
+                    if room_b.id in room_a.adjacent_ids:  
+                        route_constraints.append(RouteConstraint(                                                                                                                                                                                                                                                                                                                                                              
+                            from_location_id=room_a.id,   
+                            to_location_id=room_b.id,                                                                                                                                                                                                                                                                                                                                                                          
+                            blocked_from_step=max(0, murder_step - 1),
+                            blocked_until_step=min(config.num_time_steps - 1, murder_step + 1),                                                                                                                                                                                                                                                                                                                                
+                        ))                                                                                                                                                                                                                                                                                                                                                                                                     
+                else:         
+                    # Murder room has fewer than 2 neighbours — Type B impossible; fall back to Type A.                                                                                                                                                                                                                                                                                                                            
+                    alibi_loc = next(                                                                  
+                        (l for l in state.locations.values()                                                                                                                                                                                                                                                                                                                                                                       
+                        if l.id != murder_location_id and l.id != body_location_id),
+                        None,                                                                                                                                                                                                                                                                                                                                                                                                      
+                    )                                         
+                    if alibi_loc:                                                                                                                                                                                                                                                                                                                                                                                                  
+                        style = TimeStyle(styles[int(rng.integers(0, 3))])
+                        culprit.alibi_claims = [AlibiClaim(               
+                            location_name=alibi_loc.name,  
+                            step=murder_step,                                                                                                                                                                                                                                                                                                                                                                                      
+                            clock_time_str=_step_to_clock_str_gen(murder_step, world_start_hour),
+                            stated_time=_make_stated_time(murder_step, anchor_events, style, world_start_hour, rng),                                                                                                                                                                                                                                                                                                               
+                            time_style=style,                                                                                                                                                                                                                                                                                                                                                                                      
+                        )]
+
+        # --- Innocent suspect alibis ---
+        for sid in suspect_ids:
+            if sid == culprit.id:
+                continue
+            sc = characters[sid]
+            pos = next(
+                (e for e in state.ground_truth_timeline
+                 if e.actor_id == sid and e.step == murder_step),
+                None,
+            )
+            loc_id = pos.location_id if pos else sc.location_id
+            loc_obj = state.locations.get(loc_id)
+            if loc_obj:
+                style = TimeStyle(styles[int(rng.integers(0, 3))])
+                sc.alibi_claims = [AlibiClaim(
+                    location_name=loc_obj.name,
+                    step=murder_step,
+                    clock_time_str=_step_to_clock_str_gen(murder_step, world_start_hour),
+                    stated_time=_make_stated_time(murder_step, anchor_events, style, world_start_hour, rng),
+                    time_style=style,
+                )]
+
+        # --- Witness statements ---
+        witness_statements: list[WitnessStatement] = []
+        innocent_chars = [
+            c for c in state.characters.values()
+            if CharacterRole.INNOCENT in c.roles or CharacterRole.WITNESS in c.roles
+        ]
+        for witness in innocent_chars:
+            observed_id = str(rng.choice(
+                [s for s in suspect_ids if s != culprit.id] or suspect_ids
+            ))
+            observed = characters.get(observed_id)
+            if not observed:
+                continue
+            pos = next(
+                (e for e in state.ground_truth_timeline
+                 if e.actor_id == observed_id and e.step == murder_step),
+                None,
+            )
+            loc_id = pos.location_id if pos else observed.location_id
+            loc_obj = state.locations.get(loc_id)
+            if not loc_obj:
+                continue
+            style = TimeStyle(styles[int(rng.integers(0, 3))])
+            reliable = rng.random() >= config.testimony_unreliability
+            witness_statements.append(WitnessStatement(
+                witness_id=witness.id,
+                observed_character_id=observed_id,
+                location_name=loc_obj.name,
+                step=murder_step,
+                clock_time_str=_step_to_clock_str_gen(murder_step, world_start_hour),
+                stated_time=_make_stated_time(murder_step, anchor_events, style, world_start_hour, rng),
+                time_style=style,
+                is_reliable=reliable,
+            ))
+        state.witness_statements = witness_statements
+
+        # --- Additional route constraints (beyond the alibi-driven one) ---
+        adjacent_pairs = [
+            (loc.id, adj_id)
+            for loc in state.locations.values()
+            for adj_id in loc.adjacent_ids
+            if loc.id < adj_id
+        ]
+        n_extra = config.num_route_constraints - len(route_constraints)
+        if n_extra > 0 and adjacent_pairs:
+            chosen_idxs = list(rng.choice(
+                len(adjacent_pairs),
+                size=min(n_extra, len(adjacent_pairs)),
+                replace=False,
+            ))
+            for idx in chosen_idxs:
+                from_id, to_id = adjacent_pairs[idx]
+                route_constraints.append(RouteConstraint(
+                    from_location_id=from_id,
+                    to_location_id=to_id,
+                    blocked_from_step=max(0, murder_step - 1),
+                    blocked_until_step=min(config.num_time_steps - 1, murder_step + 1),
+                    reason=str(rng.choice(constraint_reasons)),
+                ))
+        state.route_constraints = route_constraints
+        
         # 10. Verify solvability
         check = verify_solvability(state)
         if check["solvable"]:

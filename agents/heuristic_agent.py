@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from mystery_world.entities import CharacterRole
 from mystery_world.world import AgentAction, MysteryEnvironment
 
@@ -66,22 +66,29 @@ class HeuristicAgent(BaseAgent):
         state = env.state
         plan: list[tuple[AgentAction, dict[str, str]]] = []
 
-        # Phase 1: Examine starting location
-        plan.append((AgentAction.EXAMINE_LOCATION, {}))
-        plan.append((AgentAction.SEARCH_FOR_EVIDENCE, {}))
+        def _examine_objects_here(loc) -> None:
+            for oid in loc.objects_here:
+                obj = state.objects.get(oid)
+                if obj is not None:
+                    plan.append((AgentAction.EXAMINE_OBJECT,
+                                 {"object_name": obj.name}))
 
-        # Phase 2: Visit every other location, search, and interview anyone there
+        # Phase 1: Examine starting location + every object in it
+        plan.append((AgentAction.EXAMINE_LOCATION, {}))
         start_loc = env.get_current_location()
+        if start_loc is not None:
+            _examine_objects_here(start_loc)
         visited = {start_loc.id} if start_loc else set()
 
+        # Phase 2: Visit every other location, examine its objects, and
+        # interview anyone there.
         for lid, loc in state.locations.items():
             if lid in visited:
                 continue
 
             plan.append((AgentAction.MOVE, {"target_location": loc.name}))
             plan.append((AgentAction.EXAMINE_LOCATION, {}))
-            plan.append((AgentAction.SEARCH_FOR_EVIDENCE, {}))
-            # Interview characters at this location
+            _examine_objects_here(loc)
             for cid in loc.characters_here:
                 char = state.characters.get(cid)
                 if char and char.is_alive:
@@ -122,15 +129,81 @@ class HeuristicAgent(BaseAgent):
         return action, kwargs
 
     
-    def _make_accusation(self) -> tuple[AgentAction, dict[str, str]]:
+    def _make_accusation(self) -> tuple[AgentAction, dict[str, Any]]:
+        from mystery_world.entities import EdgeType
+
         bs = self.belief_state
         suspect = bs.top_suspect() or (self._all_suspects[0] if self._all_suspects else "")
         weapon = bs.top_weapon() or (self._all_weapons[0] if self._all_weapons else "")
         location = bs.top_location() or (self._all_locations[0] if self._all_locations else "")
+
+        sw_evidence: list[str] = []
+        wv_evidence: list[str] = []
+        sr_evidence: list[str] = []
+        se_by_subject: dict[str, list[str]] = {}  # suspect_id -> [evidence_ids]
+
+        state = self._env.state if self._env is not None else None
+        discovered: set[str] = set()
+        if self._env is not None:
+            discovered = set(self._env.get_episode_summary()["evidence_discovered"])
+
+        if state is not None:
+            for eid in discovered:
+                ev = state.evidence.get(eid)
+                if ev is None or ev.is_red_herring or ev.relevance is None:
+                    continue
+                et = ev.relevance.edge_type
+                if et == EdgeType.SUSPECT_WEAPON:
+                    sw_evidence.append(eid)
+                elif et == EdgeType.WEAPON_VICTIM:
+                    wv_evidence.append(eid)
+                elif et == EdgeType.SUSPECT_ROOM:
+                    sr_evidence.append(eid)
+                elif et == EdgeType.SUSPECT_ELSEWHERE:
+                    for sid in ev.relevance.subject_ids:
+                        se_by_subject.setdefault(sid, []).append(eid)
+
+        # Build eliminations: one entry per innocent suspect with SUSPECT_ELSEWHERE
+        # evidence + a corroborator whose testimony we heard.
+        eliminations: dict[str, dict[str, str]] = {}
+        interviewed: set[str] = set()
+        if self._env is not None:
+            interviewed = set(self._env.get_episode_summary()["characters_interviewed"])
+        if state is not None:
+            for sid, eids in se_by_subject.items():
+                char = state.characters.get(sid)
+                if char is None or char.full_name == suspect:
+                    continue
+                for eid in eids:
+                    ev = state.evidence[eid]
+                    if ev.corroborator_id and ev.corroborator_id in interviewed:
+                        corr = state.characters.get(ev.corroborator_id)
+                        if corr is not None:
+                            eliminations[char.full_name] = {
+                                "evidence_id": eid,
+                                "corroborator": corr.full_name,
+                            }
+                            break
+
+        # Alibi contradiction: reuse the first SUSPECT_ROOM evidence we have.
+        alibi_contradiction: dict[str, Any] = {}
+        if self._env is not None and self._env._revealed_alibi_claims and sr_evidence:
+            claim = self._env._revealed_alibi_claims[-1]
+            alibi_contradiction = {
+                "claimed_location": claim["location"],
+                "claimed_time": claim["time"],
+                "contradiction_evidence": list(sr_evidence),
+            }
+
         return AgentAction.ACCUSE, {
             "suspect_name": suspect,
             "weapon_name": weapon,
             "location_name": location,
+            "suspect_weapon_evidence": sw_evidence,
+            "weapon_victim_evidence": wv_evidence,
+            "suspect_room_evidence": sr_evidence,
+            "alibi_contradiction": alibi_contradiction,
+            "eliminations": eliminations,
         }
 
 

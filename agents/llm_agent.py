@@ -41,9 +41,27 @@ At each step you receive an observation and must output EXACTLY this JSON:
 }
 
 Actions: MOVE (target_location), EXAMINE_LOCATION, EXAMINE_OBJECT (object_name),
-TALK_TO (character_name, question), SEARCH_FOR_EVIDENCE, TAKE_OBJECT (object_name),
-CHECK_INVENTORY, WAIT, ACCUSE (suspect_name, weapon_name, location_name).
+TALK_TO (character_name, question), TAKE_OBJECT (object_name),
+CHECK_INVENTORY, WAIT, ACCUSE (see schema below).
 Note: TALK_TO is a stateful interview — each call asks ONE focused question. You can ask the same character multiple times.
+
+ACCUSE action_args schema (all keys required for full credit):
+{
+  "suspect_name": "<name>",
+  "weapon_name": "<name>",
+  "location_name": "<room>",
+  "suspect_weapon_evidence": ["<evidence_id>", ...],
+  "weapon_victim_evidence": ["<evidence_id>", ...],
+  "suspect_room_evidence": ["<evidence_id>", ...],
+  "alibi_contradiction": {
+    "claimed_location": "<where the culprit said they were>",
+    "claimed_time": "<time they claimed>",
+    "contradiction_evidence": ["<evidence_id>", ...]
+  },
+  "eliminations": {
+    "<innocent_name>": {"evidence_id": "<id>", "corroborator": "<witness_name>"}
+  }
+}
 
 Be methodical. Gather evidence before accusing. Track alibis and eliminate suspects.
 """
