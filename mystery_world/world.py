@@ -242,9 +242,6 @@ class MysteryEnvironment:
             for cid in loc.characters_here
             if cid in self._state.characters and self._state.characters[cid].is_alive
         ]
-        for c in chars_here:
-            pt = c.physical_traits
-            parts.append(f"{c.full_name} — {pt.build}, {pt.hair}, {pt.hands}.")
         # Dead bodies
         dead_here = [
             self._state.characters[cid]
@@ -256,6 +253,9 @@ class MysteryEnvironment:
         if chars_here:
             names = ", ".join(c.full_name for c in chars_here)
             parts.append(f"Present here: {names}.")
+        for c in chars_here:
+            pt = c.physical_traits
+            parts.append(f"{c.full_name} — {pt.build}, {pt.hair}, {pt.hands}.")
         # Visible objects (not hidden evidence)
         visible_objs = [
             self._state.objects[oid]

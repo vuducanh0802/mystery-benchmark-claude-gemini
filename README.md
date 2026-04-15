@@ -146,9 +146,9 @@ python scripts/list_examples.py --level EASY
 python scripts/list_examples.py --show easy_seed_0
 
 # Play a specific example
-uv run scripts/play.py --example trivial_seed_0     # easiest warmup
-uv run scripts/play.py --example medium_seed_0
-uv run scripts/play.py --example expert_seed_3      # hardest
+uv run scripts/play.py --example trivial_seed_0 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B     # easiest warmup
+uv run scripts/play.py --example medium_seed_0 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
+uv run scripts/play.py --example expert_seed_3 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B     # hardest
 ```
 
 Example listing:
