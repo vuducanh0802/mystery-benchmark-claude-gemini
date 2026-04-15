@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import json
 import re
-from itertools import product as cartesian_product
 from typing import Any
 
 import networkx as nx
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from agents.llm_agent import LLMClient
 from mystery_world.entities import CharacterRole
 from mystery_world.world import AgentAction, MysteryEnvironment

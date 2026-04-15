@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from mystery_world.entities import CharacterRole
 from mystery_world.world import AgentAction, MysteryEnvironment
 

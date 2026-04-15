@@ -19,6 +19,7 @@ from mystery_world import COMPLEXITY_PRESETS, ComplexityLevel
 from mystery_world.generator import generate_mystery
 from mystery_world.narrator import render_initial_briefing, render_step_observation
 from mystery_world.world import AgentAction, MysteryEnvironment, WorldState
+from agents.maximum_score_oracle_agent import OracleAgent
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +44,6 @@ COMMANDS
   look                          — examine your surroundings
   go <location>                 — move to an adjacent room
   examine <object>              — inspect an object closely
-  search                        — thorough search of the room (may reveal hidden clues)
   talk <name>                   — start / continue an interview (you will be prompted for a question)
   take <object>                 — pick up a portable object
   inventory                     — review evidence you have collected
@@ -51,6 +51,7 @@ COMMANDS
   accuse                        — make your final accusation (you will be prompted)
   map                           — show the estate map and your current position
   suspects                      — list all suspects
+  hint                          — ask the oracle agent for its recommended next action
   save                          — save current session to --save-dir
   help                          — show this message
   quit                          — save and exit without finishing
@@ -137,6 +138,27 @@ def play(env: MysteryEnvironment, save_dir: Path | None = None) -> None:
             loc_name = loc.name if loc else "unknown"
             print(f"  • {s.full_name}  (last seen: {loc_name})")
 
+    def _show_hint() -> None:
+        """Run the oracle against the current env state and print its next action."""
+        print("\n[Oracle] Analysing the case ...", flush=True)
+        oracle = OracleAgent()
+        oracle.initialize(env, "")
+        action, kwargs = oracle.decide_action("")
+        # Human-readable rendering of the recommended action
+        msgs = {
+            AgentAction.MOVE:            lambda k: f"go {k.get('target_location', '?')}",
+            AgentAction.EXAMINE_OBJECT:  lambda k: f"examine {k.get('object_name', '?')}",
+            AgentAction.EXAMINE_LOCATION:lambda k: "look",
+            AgentAction.TALK_TO:         lambda k: f"talk {k.get('character_name', '?')}",
+            AgentAction.ACCUSE:          lambda k: (
+                f"accuse {k.get('suspect_name','?')} "
+                f"with {k.get('weapon_name','?')} "
+                f"in {k.get('location_name','?')}"
+            ),
+        }
+        render = msgs.get(action, lambda k: f"{action.name} {k}")
+        print(f"[Oracle] Best next action: {render(kwargs)}")
+
     def _interactive_accuse() -> tuple[str, str, str]:
         print("\nYou are about to make your final accusation. This ends the game.")
         print("Suspects:", ", ".join(s.full_name for s in suspect_list))
@@ -181,6 +203,10 @@ def play(env: MysteryEnvironment, save_dir: Path | None = None) -> None:
 
         if low in ("suspects", "suspect list"):
             _show_suspects()
+            continue
+
+        if low in ("hint", "oracle", "best"):
+            _show_hint()
             continue
 
         if low in ("save", "s"):

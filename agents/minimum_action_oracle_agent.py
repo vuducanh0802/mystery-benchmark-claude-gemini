@@ -1,12 +1,12 @@
 """
-Oracle calibration agent.
+Minimum-action oracle calibration agent.
 
 This agent knows the ground truth (culprit, weapon, location) but must still
 interact with the game API to legally discover evidence before citing it.
 
-Purpose: establish an upper-bound on benchmark scores by running a
-deterministic minimum-action proof for every case. Any real agent's scores
-should fall at or below the oracle's composite score.
+Purpose: establish a minimum-action baseline by collecting one piece of
+evidence per Locard triangle edge and making the accusation as efficiently
+as possible.
 
 Strategy
 --------
@@ -24,15 +24,13 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from mystery_world.entities import (
     AlibiClaim,
-    CharacterRole,
     EdgeType,
     EvidenceState,
-    EvidenceType,
 )
-from mystery_world.world import AgentAction, ActionResult, MysteryEnvironment
+from mystery_world.world import AgentAction, MysteryEnvironment
 
 
 # ---------------------------------------------------------------------------
@@ -72,22 +70,13 @@ class OraclePlan:
 # Oracle agent
 # ---------------------------------------------------------------------------
 
-_MAX_SEARCHES_PER_TARGET = 10  # safety cap; avoids burning the whole budget on one stubborn piece
-
-
 class OracleAgent(BaseAgent):
-    """
-    Deterministic calibration agent.
-
-    Knows everything, proves with minimum legal actions.
-    """
+    """Deterministic calibration agent. Knows everything, proves with minimum legal actions."""
 
     def __init__(self, agent_id: str = "oracle"):
         super().__init__(agent_id)
         self._env: MysteryEnvironment | None = None
         self._plan: OraclePlan | None = None
-        # Per-evidence search attempt counter — stops wasting actions once evidence is found
-        self._search_attempts: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -96,7 +85,6 @@ class OracleAgent(BaseAgent):
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:  # type: ignore[override]
         self._env = env
         self._plan = self._build_plan()
-        self._search_attempts = {}
         # Set beliefs to ground truth immediately (oracle is omniscient)
         state = env.state
         culprit = state.get_culprit()
@@ -121,6 +109,8 @@ class OracleAgent(BaseAgent):
         for target in self._all_ev_targets:
             if target.evidence_id in discovered:
                 continue
+            if target.object_name is None:
+                continue  # no host object — cannot discover, skip routing too
             ev = env.state.evidence.get(target.evidence_id)
             if ev is not None and ev.state in (
                 EvidenceState.DESTROYED, EvidenceState.HIDDEN
@@ -132,8 +122,7 @@ class OracleAgent(BaseAgent):
                     loc = env.state.locations.get(path[0])
                     if loc:
                         return AgentAction.MOVE, {"target_location": loc.name}
-            if target.object_name:
-                return AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}
+            return AgentAction.EXAMINE_OBJECT, {"object_name": target.object_name}
 
         # Phase 2: TALK_TO culprit + each corroborator
         for full_name in plan.talk_targets:

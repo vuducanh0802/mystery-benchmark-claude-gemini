@@ -8,7 +8,6 @@ and accepts *actions*.
 
 from __future__ import annotations
 
-import copy
 import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -19,7 +18,6 @@ import numpy as np
 
 from mystery_world import ComplexityConfig
 from mystery_world.entities import (
-    AlibiClaim,
     Character,
     CharacterRole,
     EdgeArgument,
@@ -32,7 +30,6 @@ from mystery_world.entities import (
     ScoreResult,
     TemporalLabel,
     TimelineEntry,
-    TimeStyle,
     WitnessStatement,
     WorldObject,
 )

@@ -24,15 +24,13 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from agents.base_agent import BaseAgent, BeliefState
+from agents.base_agent import BaseAgent
 from mystery_world.entities import (
     AlibiClaim,
-    CharacterRole,
     EdgeType,
     EvidenceState,
-    EvidenceType,
 )
-from mystery_world.world import AgentAction, ActionResult, MysteryEnvironment
+from mystery_world.world import AgentAction, MysteryEnvironment
 
 
 # ---------------------------------------------------------------------------
@@ -72,9 +70,6 @@ class OraclePlan:
 # Oracle agent
 # ---------------------------------------------------------------------------
 
-_MAX_SEARCHES_PER_TARGET = 10  # safety cap; avoids burning the whole budget on one stubborn piece
-
-
 class OracleAgent(BaseAgent):
     """
     Deterministic calibration agent.
@@ -86,8 +81,6 @@ class OracleAgent(BaseAgent):
         super().__init__(agent_id)
         self._env: MysteryEnvironment | None = None
         self._plan: OraclePlan | None = None
-        # Per-evidence search attempt counter — stops wasting actions once evidence is found
-        self._search_attempts: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -96,7 +89,6 @@ class OracleAgent(BaseAgent):
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:  # type: ignore[override]
         self._env = env
         self._plan = self._build_plan()
-        self._search_attempts = {}
         # Set beliefs to ground truth immediately (oracle is omniscient)
         state = env.state
         culprit = state.get_culprit()
