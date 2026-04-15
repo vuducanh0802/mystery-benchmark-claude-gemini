@@ -1,0 +1,208 @@
+{
+  "id": "medium_seed_22",
+  "complexity": "MEDIUM",
+  "seed": 22,
+  "multi_evidence": false,
+  "ground_truth": {
+    "culprit": "Nadia Ashworth",
+    "weapon": "poison vial",
+    "location": "Music Salon"
+  },
+  "alibi_claims": [
+    {
+      "location": "Clock Tower",
+      "time": "10:00 PM"
+    },
+    {
+      "location": "Library Annex",
+      "time": "11:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Emory Greystone",
+      "evidence_id": "ev_271675",
+      "corroborator": "Rosalind Ravenswood"
+    },
+    {
+      "suspect": "Rosalind Ravenswood",
+      "evidence_id": "ev_790797",
+      "corroborator": "Kieran Prescott"
+    },
+    {
+      "suspect": "Kieran Prescott",
+      "evidence_id": "ev_576738",
+      "corroborator": "Rosalind Ravenswood"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_460341"
+    ],
+    "wv_evidence": [
+      "ev_678415"
+    ],
+    "sr_evidence": [
+      "ev_904394"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Clock Tower",
+      "claimed_time": "10:00 PM",
+      "contradiction_evidence": [
+        "ev_904394"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "poison vial"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "window ledge"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "serving tray"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 11,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Nadia Ashworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 12,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Ravenswood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 14,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Kieran Prescott",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 15,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Nadia Ashworth",
+        "weapon_name": "poison vial",
+        "location_name": "Music Salon",
+        "suspect_weapon_evidence": [
+          "ev_460341"
+        ],
+        "weapon_victim_evidence": [
+          "ev_678415"
+        ],
+        "suspect_room_evidence": [
+          "ev_904394"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Clock Tower",
+          "claimed_time": "10:00 PM",
+          "contradiction_evidence": [
+            "ev_904394"
+          ]
+        },
+        "eliminations": {
+          "Emory Greystone": {
+            "evidence_id": "ev_271675",
+            "corroborator": "Rosalind Ravenswood"
+          },
+          "Rosalind Ravenswood": {
+            "evidence_id": "ev_790797",
+            "corroborator": "Kieran Prescott"
+          },
+          "Kieran Prescott": {
+            "evidence_id": "ev_576738",
+            "corroborator": "Rosalind Ravenswood"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.9,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 0.3333,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "id": "easy_seed_1",
+  "complexity": "EASY",
+  "seed": 1,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Silas Elsworth",
+    "weapon": "ornate letter opener",
+    "location": "Servants' Quarters"
+  },
+  "alibi_claims": [
+    {
+      "location": "Greenhouse",
+      "time": "8:30 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Cedric Deveraux",
+      "evidence_id": "ev_365505",
+      "corroborator": "Helena Nightingale"
+    },
+    {
+      "suspect": "Helena Nightingale",
+      "evidence_id": "ev_573066",
+      "corroborator": "Cedric Deveraux"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_355425",
+      "ev_604846"
+    ],
+    "wv_evidence": [
+      "ev_743011"
+    ],
+    "sr_evidence": [
+      "ev_381742",
+      "ev_241801"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Greenhouse",
+      "claimed_time": "8:30 PM",
+      "contradiction_evidence": [
+        "ev_381742",
+        "ev_241801"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "hat stand"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "ornate letter opener"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "serving tray"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "porcelain vase"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 11,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 13,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Elsworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 15,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Helena Nightingale",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Cedric Deveraux",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Silas Elsworth",
+        "weapon_name": "ornate letter opener",
+        "location_name": "Servants' Quarters",
+        "suspect_weapon_evidence": [
+          "ev_355425",
+          "ev_604846"
+        ],
+        "weapon_victim_evidence": [
+          "ev_743011"
+        ],
+        "suspect_room_evidence": [
+          "ev_381742",
+          "ev_241801"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Greenhouse",
+          "claimed_time": "8:30 PM",
+          "contradiction_evidence": [
+            "ev_381742",
+            "ev_241801"
+          ]
+        },
+        "eliminations": {
+          "Cedric Deveraux": {
+            "evidence_id": "ev_365505",
+            "corroborator": "Helena Nightingale"
+          },
+          "Helena Nightingale": {
+            "evidence_id": "ev_573066",
+            "corroborator": "Cedric Deveraux"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

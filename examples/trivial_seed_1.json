@@ -1,0 +1,184 @@
+{
+  "id": "trivial_seed_1",
+  "complexity": "TRIVIAL",
+  "seed": 1,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Fern Iverson",
+    "weapon": "crystal decanter",
+    "location": "Servants' Quarters"
+  },
+  "alibi_claims": [
+    {
+      "location": "Wine Pantry",
+      "time": "8:30 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Josette Juno",
+      "evidence_id": "ev_438614",
+      "corroborator": "Petra Crane"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_442381",
+      "ev_232082"
+    ],
+    "wv_evidence": [
+      "ev_554254"
+    ],
+    "sr_evidence": [
+      "ev_688478",
+      "ev_175729"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Wine Pantry",
+      "claimed_time": "8:30 PM",
+      "contradiction_evidence": [
+        "ev_688478",
+        "ev_175729"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "floor lamp"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "crystal decanter"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "coat rack"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "worn rug"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "writing desk"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      }
+    },
+    {
+      "step": 11,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Iverson",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 13,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Crane",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 14,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Fern Iverson",
+        "weapon_name": "crystal decanter",
+        "location_name": "Servants' Quarters",
+        "suspect_weapon_evidence": [
+          "ev_442381",
+          "ev_232082"
+        ],
+        "weapon_victim_evidence": [
+          "ev_554254"
+        ],
+        "suspect_room_evidence": [
+          "ev_688478",
+          "ev_175729"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Wine Pantry",
+          "claimed_time": "8:30 PM",
+          "contradiction_evidence": [
+            "ev_688478",
+            "ev_175729"
+          ]
+        },
+        "eliminations": {
+          "Josette Juno": {
+            "evidence_id": "ev_438614",
+            "corroborator": "Petra Crane"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

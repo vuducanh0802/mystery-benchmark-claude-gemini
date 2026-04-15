@@ -1,0 +1,346 @@
+{
+  "id": "expert_seed_0",
+  "complexity": "EXPERT",
+  "seed": 0,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Petra Quinlan",
+    "weapon": "coil of rope",
+    "location": "Grand Foyer"
+  },
+  "alibi_claims": [
+    {
+      "location": "Courtyard Terrace",
+      "time": "12:30 AM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Fern Thornfield",
+      "evidence_id": "ev_249157",
+      "corroborator": "Adrian Blackwood"
+    },
+    {
+      "suspect": "Silas Nightingale",
+      "evidence_id": "ev_509328",
+      "corroborator": "Fern Thornfield"
+    },
+    {
+      "suspect": "Rosalind Kingsley",
+      "evidence_id": "ev_294875",
+      "corroborator": "Fern Thornfield"
+    },
+    {
+      "suspect": "Adrian Blackwood",
+      "evidence_id": "ev_821131",
+      "corroborator": "Silas Nightingale"
+    },
+    {
+      "suspect": "Dahlia Greystone",
+      "evidence_id": "ev_475457",
+      "corroborator": "Nadia Montague"
+    },
+    {
+      "suspect": "Nadia Montague",
+      "evidence_id": "ev_675593",
+      "corroborator": "Adrian Blackwood"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_530484",
+      "ev_752845",
+      "ev_706022"
+    ],
+    "wv_evidence": [
+      "ev_616969"
+    ],
+    "sr_evidence": [
+      "ev_643918",
+      "ev_536062",
+      "ev_403097"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Courtyard Terrace",
+      "claimed_time": "12:30 AM",
+      "contradiction_evidence": [
+        "ev_643918"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 6,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "heavy curtain"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      }
+    },
+    {
+      "step": 9,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "footstool"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 11,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "umbrella stand"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 13,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Quinlan",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Blackwood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 19,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 20,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Thornfield",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 21,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 22,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 23,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 24,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 25,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 26,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Nightingale",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 27,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 28,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Chapel Nook"
+      }
+    },
+    {
+      "step": 29,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      }
+    },
+    {
+      "step": 30,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Nadia Montague",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 31,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Petra Quinlan",
+        "weapon_name": "coil of rope",
+        "location_name": "Grand Foyer",
+        "weapon_victim_evidence": [
+          "ev_616969"
+        ],
+        "suspect_room_evidence": [
+          "ev_643918"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Courtyard Terrace",
+          "claimed_time": "12:30 AM",
+          "contradiction_evidence": [
+            "ev_643918"
+          ]
+        },
+        "eliminations": {
+          "Fern Thornfield": {
+            "evidence_id": "ev_249157",
+            "corroborator": "Adrian Blackwood"
+          },
+          "Silas Nightingale": {
+            "evidence_id": "ev_509328",
+            "corroborator": "Fern Thornfield"
+          },
+          "Rosalind Kingsley": {
+            "evidence_id": "ev_294875",
+            "corroborator": "Fern Thornfield"
+          },
+          "Adrian Blackwood": {
+            "evidence_id": "ev_821131",
+            "corroborator": "Silas Nightingale"
+          },
+          "Dahlia Greystone": {
+            "evidence_id": "ev_475457",
+            "corroborator": "Nadia Montague"
+          },
+          "Nadia Montague": {
+            "evidence_id": "ev_675593",
+            "corroborator": "Adrian Blackwood"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.7,
+    "triangle": 1.5,
+    "alibi": 1.0,
+    "elimination": 0.1667,
+    "sw": 0.0,
+    "wv": 1.0,
+    "sr": 0.5
+  }
+}

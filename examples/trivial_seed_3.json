@@ -1,0 +1,175 @@
+{
+  "id": "trivial_seed_3",
+  "complexity": "TRIVIAL",
+  "seed": 3,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Silas Elsworth",
+    "weapon": "heavy statuette",
+    "location": "Rose Garden"
+  },
+  "alibi_claims": [
+    {
+      "location": "Dimly-Lit Study",
+      "time": "8:30 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Fern Prescott",
+      "evidence_id": "ev_767131",
+      "corroborator": "Beatrix Lark"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_146694",
+      "ev_157325",
+      "ev_971464"
+    ],
+    "wv_evidence": [
+      "ev_669894"
+    ],
+    "sr_evidence": [
+      "ev_431453"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Dimly-Lit Study",
+      "claimed_time": "8:30 PM",
+      "contradiction_evidence": [
+        "ev_431453"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "heavy statuette"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wicker basket"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wall mirror"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 6,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "fireplace mantel"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "shelf of books"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 10,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Elsworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 12,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Beatrix Lark",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 13,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Silas Elsworth",
+        "weapon_name": "heavy statuette",
+        "location_name": "Rose Garden",
+        "suspect_weapon_evidence": [
+          "ev_146694",
+          "ev_157325",
+          "ev_971464"
+        ],
+        "weapon_victim_evidence": [
+          "ev_669894"
+        ],
+        "suspect_room_evidence": [
+          "ev_431453"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Dimly-Lit Study",
+          "claimed_time": "8:30 PM",
+          "contradiction_evidence": [
+            "ev_431453"
+          ]
+        },
+        "eliminations": {
+          "Fern Prescott": {
+            "evidence_id": "ev_767131",
+            "corroborator": "Beatrix Lark"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 1.0,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

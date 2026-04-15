@@ -120,13 +120,84 @@ uv run scripts/play.py --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3
 # Choose difficulty and seed
 uv run scripts/play.py --level TRIVIAL --seed 42 --npc-url http://localhost:8200/v1 --npc-model Qwen/Qwen3.5-27B
 
+# Play a pre-generated benchmark example by ID
+uv run scripts/play.py --example trivial_seed_0
+
 # Load a saved world file
 uv run scripts/play.py --load data/benchmark_v1/level_1/instance_10042.json
 ```
 
-Commands in-game: `look`, `go <room>`, `examine <object>`, `search`, `talk <name>`, `take <object>`, `inventory`, `map`, `suspects`, `accuse`, `wait`, `help`, `quit`.
+Commands in-game: `look`, `go <room>`, `examine <object>`, `search`, `talk <name>`, `take <object>`, `inventory`, `map`, `suspects`, `accuse`, `wait`, `hint`, `help`, `quit`.
 
-### 1. Generate a benchmark suite
+The `hint` command runs the oracle agent against the current game state and prints its recommended next action.
+
+### 1. Play the pre-generated benchmark examples
+
+Twenty curated cases (4 per difficulty level) are included in `examples/`. Each records the ground-truth answer and the oracle's full action sequence, making them ideal for benchmarking agents or comparing scores across players.
+
+```bash
+# List all available examples
+python scripts/list_examples.py
+
+# Filter by level
+python scripts/list_examples.py --level EASY
+
+# Show full details + human-readable oracle walkthrough for one example
+python scripts/list_examples.py --show easy_seed_0
+
+# Play a specific example
+uv run scripts/play.py --example trivial_seed_0     # easiest warmup
+uv run scripts/play.py --example medium_seed_0
+uv run scripts/play.py --example expert_seed_3      # hardest
+```
+
+Example listing:
+```
+ID                         LEVEL      SEED  MULTI  CULPRIT                         COMPOSITE
+--------------------------------------------------------------------------------------------
+trivial_seed_0             TRIVIAL       0    yes  Rosalind Iverson                   1.0000
+trivial_seed_1             TRIVIAL       1    yes  Fern Iverson                       1.0000
+trivial_seed_2             TRIVIAL       2    yes  Adrian Iverson                     1.0000
+trivial_seed_3             TRIVIAL       3    yes  Silas Elsworth                     1.0000
+easy_seed_0                EASY          0    yes  Silas Prescott                     1.0000
+easy_seed_1                EASY          1    yes  Silas Elsworth                     1.0000
+easy_seed_2                EASY          2    yes  Rosalind Blackwood                 0.9611
+easy_seed_3                EASY          3    yes  Petra Harlow                       0.9611
+medium_seed_0              MEDIUM        0    yes  Fern Montague                      0.9500
+medium_seed_1              MEDIUM        1     no  Nadia Oakley                       0.9500
+medium_seed_2              MEDIUM        2    yes  Beatrix Greystone                  0.9111
+medium_seed_22             MEDIUM       22     no  Nadia Ashworth                     0.9000
+hard_seed_84               HARD         84     no  Adrian Crane                       0.8875
+hard_seed_0                HARD          0    yes  Petra Iverson                      0.6133
+hard_seed_1                HARD          1    yes  Petra Iverson                      0.6133
+hard_seed_83               HARD         83     no  Rosalind Juno                      0.6042
+expert_seed_0              EXPERT        0    yes  Petra Quinlan                      0.7000
+expert_seed_1              EXPERT        1    yes  Thea Blackwood                     0.6944
+expert_seed_2              EXPERT        2    yes  Thea Blackwood                     0.6944
+expert_seed_3              EXPERT        3    yes  Orson Juno                         0.6528
+```
+
+`MULTI=yes` means at least one Locard triangle edge has multiple valid evidence pieces — earning full triangle credit requires citing the right IDs.
+
+Each example JSON (`examples/<id>.json`) contains:
+
+| Field | Description |
+|-------|-------------|
+| `ground_truth` | Culprit name, weapon, and murder location |
+| `alibi_claims` | Exact alibi text the culprit will claim |
+| `eliminations` | Which innocents have SUSPECT_ELSEWHERE evidence and who corroborates them |
+| `oracle_plan` | Evidence IDs per triangle edge, alibi type, alibi contradiction |
+| `oracle_action_sequence` | Every MOVE / EXAMINE / TALK / ACCUSE step the oracle takes |
+| `oracle_scores` | Composite, triangle, alibi, elimination, and per-edge scores |
+
+To regenerate or extend the set:
+
+```bash
+python scripts/generate_examples.py    # writes examples/<id>.json
+python scripts/test_examples.py        # replays every oracle sequence, verifies scores match
+```
+
+### 2. Generate a benchmark suite
 
 ```bash
 uv run scripts/generate_benchmark.py \
@@ -150,7 +221,7 @@ data/benchmark_v1/
   manifest.json          ← index of all instances with solutions
 ```
 
-### 2. Run evaluation
+### 3. Run evaluation
 
 ```bash
 # Heuristic baseline (no API key needed)
@@ -202,7 +273,7 @@ Each run produces per-episode JSON files and a `summary.json`:
 }
 ```
 
-### 3. Run the oracle (calibration upper bound)
+### 4. Run the oracle (calibration upper bound)
 
 The oracle knows the full ground truth and executes the cheapest legal proof:
 one clue per Locard triangle edge + alibi contradiction, via the shortest route.
@@ -247,7 +318,7 @@ for level in ComplexityLevel:
     print(f"{level.name:8s}  solve_rate={sum(scores)/len(scores):.2f}")
 ```
 
-### 4. Programmatic API
+### 5. Programmatic API
 
 ```python
 from mystery_world import ComplexityLevel, COMPLEXITY_PRESETS
@@ -321,7 +392,10 @@ print(env.get_episode_summary())
 
 | File | Description |
 |------|-------------|
-| `play.py` | **Human-player mode** — interactive CLI to play a mystery case yourself |
+| `play.py` | **Human-player mode** — interactive CLI; supports `--example <id>`, `--level`, `--seed`, `--load` |
+| `generate_examples.py` | Generate the 20 curated benchmark examples (4 per level) into `examples/` |
+| `list_examples.py` | Print a table of all examples; `--show <id>` prints full details and a human-readable oracle walkthrough |
+| `test_examples.py` | Replay each example's oracle action sequence and verify scores match (regression test) |
 | `generate_benchmark.py` | CLI: generate N instances per level, write JSON + index |
 | `run_evaluation.py` | CLI: load benchmark, run agent, write per-episode results + `summary.json` |
 | `analyze_results.py` | Post-hoc analysis and plots over saved results |
@@ -377,7 +451,7 @@ Each accusation is scored on three dimensions:
 Fraction of the three elements (suspect, weapon, location) correctly identified.
 
 ### 2. Locard triangle score (0–3)
-One point per triangle edge for which the agent cites at least one fresh, non-red-herring piece of evidence pointing to the correct entities:
+Each edge is scored with **F1** (harmonic mean of precision and recall) against the set of valid evidence IDs for that edge:
 
 | Edge | What it requires |
 |------|-----------------|
@@ -385,15 +459,26 @@ One point per triangle edge for which the agent cites at least one fresh, non-re
 | `WEAPON_VICTIM` | Evidence linking murder weapon ↔ victim |
 | `SUSPECT_ROOM` | Evidence linking culprit ↔ murder location |
 
-Evidence is only counted as "fresh" if its contact timestamp falls within `freshness_threshold` steps of the murder.
+Evidence counts as valid if it is non-red-herring, its contact timestamp falls within `freshness_threshold` steps of the murder, and it is linked to the correct ground-truth entities. Citing a superset of valid IDs earns full recall; missing any valid ID reduces recall proportionally.
 
 ### 3. Alibi score (0–1)
-Awarded for citing the suspect's alibi claim, providing a contradiction, and the contradiction being logically valid (Type A: claim at wrong location at murder step; Type B: bracketing claims whose only route passes through the crime scene).
+Awarded for correctly citing the culprit's alibi claim and a valid contradiction. Two alibi types:
+- **Type A** — culprit claims a location they could not have been at during the murder window
+- **Type B** — bracketing location claims whose only connecting route passes through the crime scene
+
+### 4. Elimination score (0–1)
+Awarded for correctly clearing innocent suspects using `SUSPECT_ELSEWHERE` evidence. Formula:
+```
+elimination = max(0, (correct_eliminations − 2 × incorrect_eliminations) / total_innocents)
+```
+Characters who appear only as alibi corroborators (never as alibi targets) are excluded from `total_innocents`.
 
 ### Composite score
 ```
-composite = 0.40 × accusation + 0.40 × (triangle / 3) + 0.20 × alibi
+base      = 0.35 × accusation + 0.35 × (triangle / 3) + 0.15 × alibi + 0.15 × elimination
+composite = base × (0.8 + 0.2 × examine_efficiency)
 ```
+`examine_efficiency` is the fraction of examined objects that were relevant evidence (rewards focused investigation).
 
 ---
 
@@ -503,6 +588,3 @@ Every benchmark instance is fully determined by:
   year      = {2026}
 }
 ```
-
-
-claude --resume 08b80e79-79d1-44b1-b0ae-fdd7fd56188d

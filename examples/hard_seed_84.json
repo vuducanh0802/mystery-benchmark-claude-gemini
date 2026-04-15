@@ -1,0 +1,274 @@
+{
+  "id": "hard_seed_84",
+  "complexity": "HARD",
+  "seed": 84,
+  "multi_evidence": false,
+  "ground_truth": {
+    "culprit": "Adrian Crane",
+    "weapon": "crystal decanter",
+    "location": "Wine Pantry"
+  },
+  "alibi_claims": [
+    {
+      "location": "Rose Garden",
+      "time": "9:00 PM"
+    },
+    {
+      "location": "Greenhouse",
+      "time": "10:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Rosalind Greystone",
+      "evidence_id": "ev_681016",
+      "corroborator": "Orson Deveraux"
+    },
+    {
+      "suspect": "Orson Deveraux",
+      "evidence_id": "ev_167635",
+      "corroborator": "Kieran Elsworth"
+    },
+    {
+      "suspect": "Fern Ravenswood",
+      "evidence_id": "ev_250358",
+      "corroborator": "Orson Deveraux"
+    },
+    {
+      "suspect": "Kieran Elsworth",
+      "evidence_id": "ev_548710",
+      "corroborator": "Fern Ravenswood"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_642660"
+    ],
+    "wv_evidence": [
+      "ev_853437"
+    ],
+    "sr_evidence": [
+      "ev_334776"
+    ],
+    "alibi_type": "B",
+    "alibi_contradiction": {
+      "claimed_location": "Rose Garden",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_334776"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 2,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "crystal decanter"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "old radiator"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "fireplace mantel"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 7,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 8,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "hat stand"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 10,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      }
+    },
+    {
+      "step": 13,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Crane",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Wine Pantry"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Orson Deveraux",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 19,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Kieran Elsworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 20,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      }
+    },
+    {
+      "step": 21,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Observatory Deck"
+      }
+    },
+    {
+      "step": 22,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Ravenswood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 23,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Adrian Crane",
+        "weapon_name": "crystal decanter",
+        "location_name": "Wine Pantry",
+        "suspect_weapon_evidence": [
+          "ev_642660"
+        ],
+        "weapon_victim_evidence": [
+          "ev_853437"
+        ],
+        "suspect_room_evidence": [
+          "ev_334776"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Rose Garden",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_334776"
+          ]
+        },
+        "eliminations": {
+          "Rosalind Greystone": {
+            "evidence_id": "ev_681016",
+            "corroborator": "Orson Deveraux"
+          },
+          "Orson Deveraux": {
+            "evidence_id": "ev_167635",
+            "corroborator": "Kieran Elsworth"
+          },
+          "Fern Ravenswood": {
+            "evidence_id": "ev_250358",
+            "corroborator": "Orson Deveraux"
+          },
+          "Kieran Elsworth": {
+            "evidence_id": "ev_548710",
+            "corroborator": "Fern Ravenswood"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.8875,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 0.25,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

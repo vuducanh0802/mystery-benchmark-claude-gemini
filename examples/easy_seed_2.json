@@ -1,0 +1,242 @@
+{
+  "id": "easy_seed_2",
+  "complexity": "EASY",
+  "seed": 2,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Rosalind Blackwood",
+    "weapon": "kitchen cleaver",
+    "location": "Clock Tower"
+  },
+  "alibi_claims": [
+    {
+      "location": "Billiard Room",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Nadia Quinlan",
+      "evidence_id": "ev_270591",
+      "corroborator": "Orson Lark"
+    },
+    {
+      "suspect": "Orson Lark",
+      "evidence_id": "ev_581818",
+      "corroborator": "Nadia Quinlan"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_633639",
+      "ev_273335"
+    ],
+    "wv_evidence": [
+      "ev_813205"
+    ],
+    "sr_evidence": [
+      "ev_441529",
+      "ev_139588"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Billiard Room",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_441529",
+        "ev_139588"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 3,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wall mirror"
+      }
+    },
+    {
+      "step": 4,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 5,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 6,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "armchair"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "heavy curtain"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "storage trunk"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 13,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "serving tray"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 16,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Rosalind Blackwood",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Cellar Vault"
+      }
+    },
+    {
+      "step": 19,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Orson Lark",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 20,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Nadia Quinlan",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 21,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Rosalind Blackwood",
+        "weapon_name": "kitchen cleaver",
+        "location_name": "Clock Tower",
+        "suspect_weapon_evidence": [
+          "ev_273335"
+        ],
+        "weapon_victim_evidence": [
+          "ev_813205"
+        ],
+        "suspect_room_evidence": [
+          "ev_441529",
+          "ev_139588"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Billiard Room",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_441529",
+            "ev_139588"
+          ]
+        },
+        "eliminations": {
+          "Nadia Quinlan": {
+            "evidence_id": "ev_270591",
+            "corroborator": "Orson Lark"
+          },
+          "Orson Lark": {
+            "evidence_id": "ev_581818",
+            "corroborator": "Nadia Quinlan"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.9611,
+    "triangle": 2.6667,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 0.6667,
+    "wv": 1.0,
+    "sr": 1.0
+  }
+}

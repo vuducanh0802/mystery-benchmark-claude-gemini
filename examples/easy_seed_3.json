@@ -1,0 +1,240 @@
+{
+  "id": "easy_seed_3",
+  "complexity": "EASY",
+  "seed": 3,
+  "multi_evidence": true,
+  "ground_truth": {
+    "culprit": "Petra Harlow",
+    "weapon": "antique revolver",
+    "location": "Cellar Vault"
+  },
+  "alibi_claims": [
+    {
+      "location": "Dimly-Lit Study",
+      "time": "9:00 PM"
+    }
+  ],
+  "eliminations": [
+    {
+      "suspect": "Fern Ashworth",
+      "evidence_id": "ev_464133",
+      "corroborator": "Cedric Nightingale"
+    },
+    {
+      "suspect": "Cedric Nightingale",
+      "evidence_id": "ev_399570",
+      "corroborator": "Fern Ashworth"
+    }
+  ],
+  "oracle_plan": {
+    "sw_evidence": [
+      "ev_769604",
+      "ev_468491"
+    ],
+    "wv_evidence": [
+      "ev_964504"
+    ],
+    "sr_evidence": [
+      "ev_838124",
+      "ev_657448"
+    ],
+    "alibi_type": "A",
+    "alibi_contradiction": {
+      "claimed_location": "Dimly-Lit Study",
+      "claimed_time": "9:00 PM",
+      "contradiction_evidence": [
+        "ev_838124"
+      ]
+    }
+  },
+  "oracle_action_sequence": [
+    {
+      "step": 1,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "footstool"
+      }
+    },
+    {
+      "step": 2,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 3,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 4,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "antique revolver"
+      }
+    },
+    {
+      "step": 5,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "storage trunk"
+      }
+    },
+    {
+      "step": 6,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 7,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "hat stand"
+      }
+    },
+    {
+      "step": 8,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 9,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      }
+    },
+    {
+      "step": 10,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "serving tray"
+      }
+    },
+    {
+      "step": 11,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 12,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 13,
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "porcelain vase"
+      }
+    },
+    {
+      "step": 14,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 15,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 16,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Petra Harlow",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 17,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Cedric Nightingale",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 18,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Billiard Room"
+      }
+    },
+    {
+      "step": 19,
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      }
+    },
+    {
+      "step": 20,
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Fern Ashworth",
+        "question": "Where were you at the time of the murder?"
+      }
+    },
+    {
+      "step": 21,
+      "action": "ACCUSE",
+      "kwargs": {
+        "suspect_name": "Petra Harlow",
+        "weapon_name": "antique revolver",
+        "location_name": "Cellar Vault",
+        "suspect_weapon_evidence": [
+          "ev_769604",
+          "ev_468491"
+        ],
+        "weapon_victim_evidence": [
+          "ev_964504"
+        ],
+        "suspect_room_evidence": [
+          "ev_838124"
+        ],
+        "alibi_contradiction": {
+          "claimed_location": "Dimly-Lit Study",
+          "claimed_time": "9:00 PM",
+          "contradiction_evidence": [
+            "ev_838124"
+          ]
+        },
+        "eliminations": {
+          "Fern Ashworth": {
+            "evidence_id": "ev_464133",
+            "corroborator": "Cedric Nightingale"
+          },
+          "Cedric Nightingale": {
+            "evidence_id": "ev_399570",
+            "corroborator": "Fern Ashworth"
+          }
+        }
+      }
+    }
+  ],
+  "oracle_scores": {
+    "composite": 0.9611,
+    "triangle": 2.6667,
+    "alibi": 1.0,
+    "elimination": 1.0,
+    "sw": 1.0,
+    "wv": 1.0,
+    "sr": 0.6667
+  }
+}

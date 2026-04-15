@@ -443,6 +443,12 @@ def main() -> None:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--load", metavar="FILE", help="Load a saved world JSON")
     group.add_argument(
+        "--example",
+        metavar="ID",
+        help="Play a benchmark example by ID, e.g. trivial_seed_0. "
+             "Run 'python scripts/list_examples.py' to see all available IDs.",
+    )
+    group.add_argument(
         "--level",
         default="MEDIUM",
         choices=list(LEVEL_NAMES),
@@ -475,10 +481,28 @@ def main() -> None:
     args = parser.parse_args()
 
     import datetime
+    import json
+
+    EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 
     if args.load:
         world_state = WorldState.load(args.load)
         print(f"Loaded world from {args.load}  (seed={world_state.seed})")
+    elif args.example:
+        example_path = EXAMPLES_DIR / f"{args.example}.json"
+        if not example_path.exists():
+            available = sorted(p.stem for p in EXAMPLES_DIR.glob("*.json"))
+            print(f"Example '{args.example}' not found. Available examples:")
+            for eid in available:
+                print(f"  {eid}")
+            sys.exit(1)
+        ex_data = json.loads(example_path.read_text())
+        seed  = ex_data["seed"]
+        level = LEVEL_NAMES[ex_data["complexity"].upper()]
+        config = COMPLEXITY_PRESETS[level]
+        multi = "  (multi-evidence)" if ex_data.get("multi_evidence") else ""
+        print(f"Loading example '{args.example}' — {ex_data['complexity']} case, seed={seed}{multi} ...")
+        world_state = generate_mystery(config, seed)
     else:
         import random
         seed = args.seed if args.seed is not None else random.randint(0, 999999)

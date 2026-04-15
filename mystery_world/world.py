@@ -304,7 +304,7 @@ class MysteryEnvironment:
         self.action_history.append({
             "step": self._state.current_step,
             "action": action.name,
-            "kwargs": {k: str(v) for k, v in kwargs.items()},
+            "kwargs": dict(kwargs),
             "success": result.success,
             "observation": result.observation[:500],
         })
