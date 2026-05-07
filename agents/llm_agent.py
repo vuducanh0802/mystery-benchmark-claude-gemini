@@ -239,6 +239,7 @@ class LLMAgent(BaseAgent):
         )
         response_text, tokens = self.llm.complete(SYSTEM_PROMPT, user_msg)
         self.total_tokens_used += tokens
+        self.last_raw_response = response_text
 
         # Parse JSON from response
         parsed = self._parse_response(response_text)

@@ -16,6 +16,7 @@ from typing import Any
 
 from agents.base_agent import BaseAgent
 from evaluation.metrics import EpisodeMetrics, compute_episode_metrics
+from evaluation.trajectory import TrajectoryWriter, world_state_hash
 from mystery_world.entities import CharacterRole
 from mystery_world.narrator import (
     render_character_summary,
@@ -60,6 +61,7 @@ def run_episode(
     complexity_level: int = 1,
     verbose: bool = False,
     npc_responder=None,
+    trajectory_writer: TrajectoryWriter | None = None,
 ):
     """
     Run a single-agent-vs-environment episode.
@@ -127,6 +129,9 @@ def run_episode(
                 # Agent decides
                 action, kwargs = agent.decide_action(obs_context)
             
+            # Capture observation passed INTO the agent for this step (for replay)
+            input_obs = obs_context if env.budget_remaining > 0 else "[budget exhausted; forcing accusation]"
+
             # Execute action
             action_result = env.step(action, **kwargs)
             observation = render_step_observation(env, action_result.observation)
@@ -134,7 +139,7 @@ def run_episode(
             if verbose:
                 print(f"\n[Step {step_idx + 1}] Action: {action.name} {kwargs}")
                 print(f"Result: {observation[:300]}")
-            
+
             # Record
             agent.record_action(action, kwargs, observation)
             agent.update_beliefs(observation)
@@ -147,6 +152,18 @@ def run_episode(
                 "success": action_result.success,
                 "observation_preview": observation[:200],
             })
+
+            if trajectory_writer is not None:
+                trajectory_writer.write_step(
+                    step=step_idx,
+                    action=action.name,
+                    action_kwargs=kwargs,
+                    observation=input_obs,
+                    model_response=getattr(agent, "last_raw_response", None),
+                    result_observation=observation,
+                    success=action_result.success,
+                    post_state_hash=world_state_hash(world_state),
+                )
         
         # Compute metrics
         episode_summary = env.get_episode_summary()
@@ -187,6 +204,9 @@ def run_benchmark(
     output_dir: str | Path,
     verbose: bool = False,
     npc_responder=None,
+    trajectory_dir: str | Path | None = None,
+    trajectory_meta: dict | None = None,
+    skip_existing: bool = False,
 ):
     """
     Run a full benchmark suite.
@@ -208,18 +228,55 @@ def run_benchmark(
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    traj_dir = Path(trajectory_dir) if trajectory_dir else None
+    if traj_dir is not None:
+        traj_dir.mkdir(parents=True, exist_ok=True)
+    meta = trajectory_meta or {}
 
     results: list[EpisodeResult] = []
 
     for i, (ws, level) in enumerate(instances):
+        traj_path = traj_dir / f"level_{level}_seed_{ws.seed}.jsonl" if traj_dir else None
+        if skip_existing and traj_path is not None and traj_path.exists():
+            logger.info(f"Skipping seed={ws.seed} level={level} (trajectory exists)")
+            continue
+
         logger.info(f"Running instance {i+1}/{len(instances)} (seed={ws.seed}, level={level})")
         if verbose:
             print(f"\n{'=' * 60}")
             print(f"Instance {i + 1}/{len(instances)} — Seed: {ws.seed}, Level: {level}")
             print(f"{'=' * 60}")
-        
+
         agent = agent_factory()
-        result = run_episode(agent, ws, complexity_level=level, verbose=verbose, npc_responder=npc_responder)
+        writer = None
+        if traj_path is not None:
+            writer = TrajectoryWriter(traj_path)
+            writer.write_header(
+                state=ws,
+                level=str(level),
+                agent=meta.get("agent", "unknown"),
+                model=meta.get("model"),
+                provider=meta.get("provider"),
+                npc_provider=meta.get("npc_provider"),
+                npc_model=meta.get("npc_model"),
+                npc_seed=meta.get("npc_seed"),
+                instance_id=f"seed_{ws.seed}",
+            )
+        try:
+            result = run_episode(
+                agent, ws, complexity_level=level, verbose=verbose,
+                npc_responder=npc_responder, trajectory_writer=writer,
+            )
+            if writer is not None:
+                writer.write_footer(
+                    episode_summary=result.episode_summary,
+                    metrics=result.metrics.to_dict() if result.metrics else None,
+                    elapsed_seconds=result.elapsed_seconds,
+                    error=result.error,
+                )
+        finally:
+            if writer is not None:
+                writer.close()
         results.append(result)
 
         # Save individual result

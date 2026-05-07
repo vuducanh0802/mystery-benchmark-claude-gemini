@@ -127,6 +127,16 @@ def main() -> None:
         default=42,
         help="Fixed seed for NPC responses (default: 42)",
     )
+    parser.add_argument(
+        "--trajectory-dir",
+        default=None,
+        help="If set, write JSONL trajectory logs (one file per episode) for replay/reproducibility.",
+    )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip seeds whose trajectory file already exists (resume-on-crash).",
+    )
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -157,12 +167,24 @@ def main() -> None:
         logger.info("NPC responder: deterministic fallback (no --npc-url provided)")
 
     # Run
+    cfg = AGENT_CONFIGS[args.agent]
+    traj_meta = {
+        "agent": args.agent,
+        "model": args.model or cfg.get("model"),
+        "provider": cfg.get("provider"),
+        "npc_provider": "vllm" if args.npc_url else "fallback",
+        "npc_model": args.npc_model if args.npc_url else None,
+        "npc_seed": args.npc_seed if args.npc_url else None,
+    }
     results = run_benchmark(
         agent_factory=make_agent_factory(args.agent, args.model),
         instances=instances,
         output_dir=args.output,
         verbose=args.verbose,
         npc_responder=npc_responder,
+        trajectory_dir=args.trajectory_dir,
+        trajectory_meta=traj_meta,
+        skip_existing=args.skip_existing,
     )
 
     # Summary
