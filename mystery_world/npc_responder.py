@@ -188,13 +188,17 @@ class NPCResponder:
 
     def __init__(
         self,
-        base_url: str = _DEFAULT_NPC_URL,
+        base_url: str | None = _DEFAULT_NPC_URL,
         model: str = _DEFAULT_NPC_MODEL,
         seed: int = _FIXED_SEED,
+        api_key: str | None = None,
+        api_key_env: str | None = None,
     ) -> None:
         self.base_url = base_url
         self.model = model
         self.seed = seed
+        self._api_key = api_key
+        self._api_key_env = api_key_env
         self._client: Any = None
 
     def _ensure_client(self) -> None:
@@ -202,7 +206,17 @@ class NPCResponder:
             return
         try:
             import openai
-            self._client = openai.OpenAI(base_url=self.base_url, api_key="EMPTY")
+            import os
+            if self._api_key is not None:
+                key = self._api_key
+            elif self._api_key_env:
+                key = os.environ.get(self._api_key_env, "")
+            else:
+                key = "EMPTY"  # vLLM convention
+            kwargs: dict[str, Any] = {"api_key": key or "EMPTY"}
+            if self.base_url:
+                kwargs["base_url"] = self.base_url
+            self._client = openai.OpenAI(**kwargs)
         except ImportError as exc:
             raise RuntimeError("openai package required: pip install openai") from exc
 

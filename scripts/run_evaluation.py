@@ -62,6 +62,11 @@ AGENT_CONFIGS = {
         "model": "gemini-2.0-flash",
         "description": "Gemini 2.0 Flash via Google API (GOOGLE_API_KEY)",
     },
+    "openrouter": {
+        "provider": "openrouter",
+        "model": "qwen/qwen3.5-27b",
+        "description": "Any model via OpenRouter (OPENROUTER_API_KEY); pass --model to choose",
+    },
 }
 
 

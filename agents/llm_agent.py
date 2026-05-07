@@ -122,6 +122,16 @@ class LLMClient:
                 )
             except Exception:
                 self._client = None
+        elif self.provider == "openrouter":
+            try:
+                import openai
+                import os
+                self._client = openai.OpenAI(
+                    api_key=os.environ.get("OPENROUTER_API_KEY", ""),
+                    base_url="https://openrouter.ai/api/v1",
+                )
+            except Exception:
+                self._client = None
 
     
     def complete(self, system: str, user: str) -> tuple[str, int]:
@@ -144,7 +154,7 @@ class LLMClient:
                 text = resp.content[0].text
                 tokens = resp.usage.input_tokens + resp.usage.output_tokens
                 return text, tokens
-            elif self.provider in ("openai", "google"):
+            elif self.provider in ("openai", "google", "openrouter"):
                 resp = self._client.chat.completions.create(
                     model=self.model,
                     max_tokens=16384,
