@@ -456,15 +456,23 @@ def main() -> None:
     )
     parser.add_argument("--seed", type=int, default=None, help="Random seed (random if omitted)")
     parser.add_argument(
+        "--npc-provider",
+        default="fallback",
+        choices=["fallback", "openai", "openrouter", "vllm"],
+        help="NPC backend: fallback (deterministic, no LLM), openai (api.openai.com, "
+             "needs OPENAI_API_KEY), openrouter (openrouter.ai, needs OPENROUTER_API_KEY), "
+             "vllm (custom OpenAI-compatible URL via --npc-url).",
+    )
+    parser.add_argument(
         "--npc-url",
         default=None,
-        help="OpenAI-compatible base URL for LLM-powered NPC interviews (e.g. http://localhost:8123/v1). "
-             "If omitted, NPCs use a deterministic fallback.",
+        help="OpenAI-compatible base URL (only used when --npc-provider vllm). "
+             "Example: http://localhost:8123/v1.",
     )
     parser.add_argument(
         "--npc-model",
-        default="Qwen/Qwen3.5-27B",
-        help="Model served at --npc-url (default: Qwen/Qwen3.5-27B)",
+        default="gpt-4o-mini",
+        help="NPC model name (default: gpt-4o-mini for openai; pass any model for other providers).",
     )
     parser.add_argument(
         "--npc-seed",
@@ -520,13 +528,26 @@ def main() -> None:
         save_dir = Path(args.save_dir) / f"seed{world_state.seed}_{ts}"
         print(f"Session will be saved to: {save_dir}")
 
-    if args.npc_url:
+    if args.npc_provider != "fallback":
         from mystery_world.npc_responder import NPCResponder
-        responder = NPCResponder(base_url=args.npc_url, model=args.npc_model, seed=args.npc_seed)
+        if args.npc_provider == "openai":
+            responder = NPCResponder(base_url=None, model=args.npc_model,
+                                     seed=args.npc_seed, api_key_env="OPENAI_API_KEY")
+            print(f"NPC interviews: {args.npc_model} via OpenAI")
+        elif args.npc_provider == "openrouter":
+            responder = NPCResponder(base_url="https://openrouter.ai/api/v1",
+                                     model=args.npc_model, seed=args.npc_seed,
+                                     api_key_env="OPENROUTER_API_KEY")
+            print(f"NPC interviews: {args.npc_model} via OpenRouter")
+        else:  # vllm
+            if not args.npc_url:
+                print("--npc-provider vllm requires --npc-url")
+                sys.exit(1)
+            responder = NPCResponder(base_url=args.npc_url, model=args.npc_model, seed=args.npc_seed)
+            print(f"NPC interviews: {args.npc_model} @ {args.npc_url}")
         env.set_npc_responder(responder)
-        print(f"NPC interviews: {args.npc_model} @ {args.npc_url}")
     else:
-        print("NPC interviews: deterministic fallback (pass --npc-url to use an LLM)")
+        print("NPC interviews: deterministic fallback (pass --npc-provider to use an LLM)")
 
     play(env, save_dir=save_dir)
 

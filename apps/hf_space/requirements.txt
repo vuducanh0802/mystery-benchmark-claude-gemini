@@ -1,0 +1,5 @@
+gradio>=4.44
+openai>=1.40
+anthropic>=0.40
+numpy
+structlog
