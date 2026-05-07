@@ -1,5 +1,8 @@
-gradio>=4.44
 openai>=1.40
 anthropic>=0.40
 numpy
 structlog
+audioop-lts; python_version >= "3.13"
+huggingface_hub<1.0
+starlette<0.40
+fastapi<0.115
