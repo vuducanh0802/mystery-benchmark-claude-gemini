@@ -226,6 +226,40 @@ def compute_episode_metrics(
 
         m.composite_score = score.get("composite_score", 0.0)
 
+    # Budget-exhaustion penalty: if the agent ran out of actions and was
+    # forced to accuse, zero out all reward/score metrics. Diagnostic
+    # counters (actions_used, action_budget, total_tokens, total_steps,
+    # event_count, examine_total/hit) are preserved so cost analysis still
+    # works.
+    if m.action_budget > 0 and m.actions_used >= m.action_budget:
+        m.solved = False
+        m.suspect_correct = False
+        m.weapon_correct = False
+        m.location_correct = False
+        m.partial_score = 0.0
+        m.accusation_score = 0.0
+        m.suspect_weapon_precision = 0.0
+        m.suspect_weapon_recall = 0.0
+        m.suspect_weapon_score = 0.0
+        m.weapon_victim_precision = 0.0
+        m.weapon_victim_recall = 0.0
+        m.weapon_victim_score = 0.0
+        m.suspect_room_precision = 0.0
+        m.suspect_room_recall = 0.0
+        m.suspect_room_score = 0.0
+        m.triangle_score = 0.0
+        m.alibi_cited = False
+        m.contradiction_found = False
+        m.contradiction_valid = False
+        m.alibi_score = 0.0
+        m.correct_eliminations = 0
+        m.incorrect_eliminations = 0
+        m.elimination_score = 0.0
+        m.examine_efficiency = 0.0
+        m.clue_efficiency = 0.0
+        m.final_belief_accuracy = 0.0
+        m.composite_score = 0.0
+
     return m
 
 

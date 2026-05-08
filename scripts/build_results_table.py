@@ -74,17 +74,29 @@ def _collect(traj_dir: Path) -> dict[tuple[str, str], list[dict]]:
             continue
         m = footer.get("metrics") or {}
         summary = footer.get("episode_summary") or {}
+        # Budget-exhaustion penalty: agents that ran out of actions and
+        # were force-accused get all reward metrics zeroed at report time.
+        # This applies retroactively to existing trajectories.
+        actions_taken = int(_safe(summary, "actions_taken", default=0)
+                            or _safe(m, "actions_used", default=0))
+        budget = int(_safe(summary, "budget", default=0)
+                     or _safe(m, "action_budget", default=0))
+        budget_exhausted = budget > 0 and actions_taken >= budget
+        zero = budget_exhausted
         out[(agent, level)].append({
-            "solved": bool(m.get("solved")),
-            "composite": float(_safe(m, "composite_score")),
-            "accusation": float(_safe(m, "accusation_score")),
-            "triangle": float(_safe(m, "triangle_score")),
-            "alibi": float(_safe(m, "alibi_score")),
-            "elimination": float(_safe(summary, "scoring", "elimination_score")
-                                 or _safe(summary, "elimination_score")),
-            "actions": int(_safe(m, "actions_used", default=0)),
+            "solved": False if zero else bool(m.get("solved")),
+            "composite": 0.0 if zero else float(_safe(m, "composite_score")),
+            "accusation": 0.0 if zero else float(_safe(m, "accusation_score")),
+            "triangle": 0.0 if zero else float(_safe(m, "triangle_score")),
+            "alibi": 0.0 if zero else float(_safe(m, "alibi_score")),
+            "elimination": 0.0 if zero else float(
+                _safe(summary, "scoring", "elimination_score")
+                or _safe(summary, "elimination_score")
+            ),
+            "actions": actions_taken,
             "tokens": int(_safe(m, "total_tokens", default=0)),
             "error": bool(footer.get("error")),
+            "budget_exhausted": budget_exhausted,
         })
     return out
 
@@ -105,6 +117,7 @@ def _agg(rows: list[dict]) -> dict:
         "avg_actions": round(mean(r["actions"] for r in rows), 2),
         "avg_tokens": round(mean(r["tokens"] for r in rows), 1),
         "errors": sum(1 for r in rows if r["error"]),
+        "budget_exhausted": sum(1 for r in rows if r.get("budget_exhausted")),
     }
 
 
@@ -127,7 +140,8 @@ def main() -> int:
                             key=lambda x: (_LEVEL_ORDER.index(x) if x in _LEVEL_ORDER else 99, x))
 
     cols = ["agent", "level", "n", "solve_rate", "composite", "accusation",
-            "triangle", "alibi", "elimination", "avg_actions", "avg_tokens", "errors"]
+            "triangle", "alibi", "elimination", "avg_actions", "avg_tokens",
+            "errors", "budget_exhausted"]
 
     csv_path = out_dir / "summary.csv"
     md_path = out_dir / "summary.md"
@@ -146,8 +160,8 @@ def main() -> int:
         fh.write("# MysteryArena results\n\n")
         for a in agents:
             fh.write(f"## {a}\n\n")
-            fh.write("| level | n | solve | composite | accuse | triangle | alibi | elim | actions | tokens | err |\n")
-            fh.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            fh.write("| level | n | solve | composite | accuse | triangle | alibi | elim | actions | tokens | err | budget_exh |\n")
+            fh.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             for l in levels_present:
                 s = _agg(grouped.get((a, l), []))
                 if s.get("n", 0) == 0:
@@ -156,7 +170,7 @@ def main() -> int:
                     f"| {l} | {s['n']} | {s['solve_rate']:.3f} | {s['composite']:.3f} | "
                     f"{s['accusation']:.3f} | {s['triangle']:.3f} | {s['alibi']:.3f} | "
                     f"{s['elimination']:.3f} | {s['avg_actions']:.1f} | "
-                    f"{s['avg_tokens']:.0f} | {s['errors']} |\n"
+                    f"{s['avg_tokens']:.0f} | {s['errors']} | {s['budget_exhausted']} |\n"
                 )
             fh.write("\n")
 
