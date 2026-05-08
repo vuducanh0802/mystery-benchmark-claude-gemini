@@ -316,11 +316,11 @@ composite = base × (0.8 + 0.2·examine_efficiency)
 
 | Level | Locations | Suspects | Budget | Freshness | Route Constraints |
 |-------|-----------|----------|--------|-----------|-------------------|
-| TRIVIAL | 3 | 2 | 15 | 3.0 | 0 |
-| EASY | 4 | 3 | 20 | 2.5 | 0 |
-| MEDIUM | 5 | 4 | 30 | 2.0 | 1 |
-| HARD | 7 | 5 | 40 | 1.5 | 2 |
-| EXPERT | 10 | 7 | 60 | 1.0 | 3 |
+| TRIVIAL | 3 | 2 | 40 | 3.0 | 0 |
+| EASY | 4 | 3 | 50 | 2.5 | 0 |
+| MEDIUM | 5 | 4 | 75 | 2.0 | 1 |
+| HARD | 7 | 5 | 100 | 1.5 | 2 |
+| EXPERT | 10 | 7 | 150 | 1.0 | 3 |
 
 Full knob list: see `mystery_world/__init__.py:ComplexityConfig`. Notable axes include `evidence_decay_rate`, `culprit_tamper_prob`, `testimony_unreliability`, `evidence_ambiguity`, and `reactive_events` (the Option A vs B NPC movement toggle).
 
