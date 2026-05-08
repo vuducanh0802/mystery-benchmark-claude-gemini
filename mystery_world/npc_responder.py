@@ -245,16 +245,19 @@ class NPCResponder:
         system = build_npc_system_prompt(char, state)
         messages = list(history) + [{"role": "user", "content": question}]
         try:
+            extra_body: dict[str, Any] = {"seed": self.seed}
+            # chat_template_kwargs is a vLLM-only knob (Qwen3 "thinking" toggle).
+            # OpenAI / OpenRouter reject unknown args, so only send it for vLLM-style
+            # endpoints (custom base_url that isn't OpenRouter).
+            is_vllm = self.base_url is not None and "openrouter.ai" not in self.base_url
+            if is_vllm:
+                extra_body["chat_template_kwargs"] = {"enable_thinking": False}
             resp = self._client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "system", "content": system}] + messages,
                 max_tokens=512,
                 temperature=0.7,
-                extra_body={
-                    "seed": self.seed,
-                    # Disable chain-of-thought for Qwen3 thinking models
-                    "chat_template_kwargs": {"enable_thinking": False},
-                },
+                extra_body=extra_body,
             )
             raw = resp.choices[0].message.content or ""
             return _strip_thinking(raw).strip()
