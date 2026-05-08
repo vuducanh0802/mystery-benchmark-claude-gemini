@@ -856,9 +856,9 @@ def _generate_alibis(
         else:                
             # Varied: no alibi / solo / partial                                   
             alibi_roll = float(rng.random())
-            if alibi_roll < 0.25:                                                 
+            if alibi_roll < 0.15:                                                 
                 suspect.has_alibi = False                                       
-            elif alibi_roll < 0.60:                                               
+            elif alibi_roll < 0.70:                                               
                 suspect.has_alibi = True                                          
                 template = _INNOCENT_SOLO_ALIBIS[int(rng.integers(len(_INNOCENT_SOLO_ALIBIS)))]
                 suspect.alibi_details = template                                  
