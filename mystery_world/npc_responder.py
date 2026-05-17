@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from agents.llm_role import LLMConfig, LLMRole, LLMUnavailable
+
 if TYPE_CHECKING:
     from mystery_world.entities import Character
     from mystery_world.world import WorldState
@@ -176,21 +178,31 @@ STRICT RULES — follow these exactly:
 {lying_block}"""
 
 
-class NPCResponder:
+class NPCResponder(LLMRole):
     """
     Generates NPC interview responses using a local or remote LLM.
+
+    This is the **NPC role**. It inherits :class:`LLMRole`, so it shares the
+    exact same model transport as the Detective and Corporate roles — repoint
+    the whole benchmark at a LiteLLM gateway with one
+    ``LLMRole.configure_litellm(...)`` call.
+
+    The public surface (``base_url``, ``model``, ``seed``, ``api_key``,
+    ``api_key_env`` and ``respond(...)``) is unchanged from the pre-refactor
+    version, including the loud failure on a missing explicit ``api_key_env``
+    and the silent in-dialog error on transient API failures.
 
     Parameters
     ----------
     base_url : str
-        OpenAI-compatible API base URL.
-        For vLLM: "http://localhost:8000/v1"
-        For Together AI: "https://api.together.xyz/v1"
+        OpenAI-compatible API base URL (vLLM, Together, LiteLLM, ...).
     model : str
         Model name as served by the endpoint.
     seed : int
         Fixed seed for reproducibility (passed via extra_body).
     """
+
+    role_name = "npc"
 
     def __init__(
         self,
@@ -200,38 +212,29 @@ class NPCResponder:
         api_key: str | None = None,
         api_key_env: str | None = None,
     ) -> None:
-        self.base_url = base_url
-        self.model = model
-        self.seed = seed
-        self._api_key = api_key
-        self._api_key_env = api_key_env
-        self._client: Any = None
+        # Preserve the legacy "no key + no env → EMPTY" vLLM convention exactly
+        # (without it, a stray OPENAI_API_KEY in the env could leak to a local
+        # endpoint). An explicit api_key_env still fails loud if unset.
+        if api_key is None and api_key_env is None:
+            api_key = "EMPTY"
+        super().__init__(LLMConfig(
+            provider="openai", model=model, base_url=base_url,
+            api_key=api_key, api_key_env=api_key_env,
+            seed=seed, max_tokens=512, temperature=0.7,
+        ))
 
-    def _ensure_client(self) -> None:
-        if self._client is not None:
-            return
-        try:
-            import openai
-            import os
-            if self._api_key is not None:
-                key = self._api_key
-            elif self._api_key_env:
-                key = os.environ.get(self._api_key_env, "")
-                if not key:
-                    raise RuntimeError(
-                        f"NPCResponder: env var {self._api_key_env} is unset or empty. "
-                        f"Export it in the shell that launches the sweep, e.g. "
-                        f"`export {self._api_key_env}=...` "
-                        f"(this would otherwise silently fail with 401 errors written into NPC dialog)."
-                    )
-            else:
-                key = "EMPTY"  # vLLM convention
-            kwargs: dict[str, Any] = {"api_key": key or "EMPTY"}
-            if self.base_url:
-                kwargs["base_url"] = self.base_url
-            self._client = openai.OpenAI(**kwargs)
-        except ImportError as exc:
-            raise RuntimeError("openai package required: pip install openai") from exc
+    # Back-compat read-only accessors (some callers/tests inspect these).
+    @property
+    def base_url(self) -> str | None:
+        return self.config.base_url
+
+    @property
+    def model(self) -> str:
+        return self.config.model
+
+    @property
+    def seed(self) -> int | None:
+        return self.config.seed
 
     def respond(
         self,
@@ -254,25 +257,23 @@ class NPCResponder:
         history : list[dict]
             Prior turns in this interview: [{"role": "user"|"assistant", "content": "..."}]
         """
-        self._ensure_client()
         system = build_npc_system_prompt(char, state)
         messages = list(history) + [{"role": "user", "content": question}]
+        extra_body: dict[str, Any] = {"seed": self.config.seed}
+        # chat_template_kwargs is a vLLM-only knob (Qwen3 "thinking" toggle).
+        # OpenAI / OpenRouter reject unknown args, so only send it for vLLM-style
+        # endpoints (custom base_url that isn't OpenRouter).
+        bu = self.config.base_url
+        is_vllm = bu is not None and "openrouter.ai" not in bu
+        if is_vllm:
+            extra_body["chat_template_kwargs"] = {"enable_thinking": False}
         try:
-            extra_body: dict[str, Any] = {"seed": self.seed}
-            # chat_template_kwargs is a vLLM-only knob (Qwen3 "thinking" toggle).
-            # OpenAI / OpenRouter reject unknown args, so only send it for vLLM-style
-            # endpoints (custom base_url that isn't OpenRouter).
-            is_vllm = self.base_url is not None and "openrouter.ai" not in self.base_url
-            if is_vllm:
-                extra_body["chat_template_kwargs"] = {"enable_thinking": False}
-            resp = self._client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "system", "content": system}] + messages,
-                max_tokens=512,
-                temperature=0.7,
+            raw, _ = self.chat(
+                system, messages, max_tokens=512, temperature=0.7,
                 extra_body=extra_body,
             )
-            raw = resp.choices[0].message.content or ""
             return _strip_thinking(raw).strip()
-        except Exception as exc:
+        except LLMUnavailable:
+            raise  # misconfigured key/env must fail loud, as before
+        except Exception as exc:  # noqa: BLE001 — transient API error stays silent
             return f"{char.full_name} stares at you silently and says nothing. (Error: {exc})"

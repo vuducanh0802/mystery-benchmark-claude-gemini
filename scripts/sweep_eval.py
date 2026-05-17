@@ -159,7 +159,26 @@ def main() -> int:
     p.add_argument("--npc-model", default="gpt-4o-mini")
     p.add_argument("--npc-url", default=None, help="vLLM base URL (only used with --npc-provider vllm)")
     p.add_argument("--npc-seed", type=int, default=42)
+    p.add_argument("--litellm-url", default=None,
+                   help="Route ALL roles (detective + NPC) through this LiteLLM "
+                        "(OpenAI-compatible) gateway. Single injection point.")
+    p.add_argument("--litellm-key-env", default=None,
+                   help="Env var holding the LiteLLM key (omit for keyless proxy).")
+    p.add_argument("--litellm-model", default=None,
+                   help="Optional model alias applied to every role; if omitted, "
+                        "each role keeps its own (--model / --npc-model).")
     args = p.parse_args()
+
+    if args.litellm_url:
+        from agents.llm_role import LLMRole
+        LLMRole.configure_litellm(
+            args.litellm_url,
+            api_key_env=args.litellm_key_env,
+            model=args.litellm_model,
+        )
+        print(f"LiteLLM gateway: {args.litellm_url} "
+              f"(key_env={args.litellm_key_env or 'none'}, "
+              f"model={args.litellm_model or 'per-role'})")
 
     seeds = _parse_seeds(args.seeds)
     base = Path(args.trajectory_dir) / args.agent

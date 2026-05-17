@@ -13,7 +13,13 @@ import re
 from typing import Any
 
 from agents.base_agent import BaseAgent, BeliefState
+from agents.llm_role import LLMClient, LLMConfig, LLMRole
 from mystery_world.world import AgentAction, MysteryEnvironment
+
+# Re-exported for backward compatibility: `from agents.llm_agent import LLMClient`
+# still works (used by agents.symbolic_agent). The implementation now lives in
+# agents.llm_role alongside the unified LLMRole transport.
+__all__ = ["LLMAgent", "LLMClient", "SYSTEM_PROMPT"]
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -82,135 +88,38 @@ def _build_user_message(briefing: str, history: list[str], current_obs: str, bud
 
 
 # ---------------------------------------------------------------------------
-# LLM client abstraction
-# ---------------------------------------------------------------------------
-
-class LLMClient:
-    """
-    Thin wrapper around LLM API calls. Supports Anthropic and OpenAI.
-    Falls back to a deterministic heuristic agent for testing without API keys.
-    """
-
-    def __init__(self, provider: str = "anthropic", model: str = "claude-sonnet-4-20250514"):
-        self.provider = provider
-        self.model = model
-        self._client = None
-    
-
-    def _ensure_client(self) -> None:
-        if self._client is not None:
-            return
-        if self.provider == "anthropic":
-            try:
-                import anthropic
-                self._client = anthropic.Anthropic()
-            except Exception:
-                self._client = None  # fallback to heuristic
-        elif self.provider == "openai":
-            try:
-                import openai
-                self._client = openai.OpenAI()
-            except Exception:
-                self._client = None
-        elif self.provider == "google":
-            try:
-                import openai
-                import os
-                self._client = openai.OpenAI(
-                    api_key=os.environ.get("GOOGLE_API_KEY", ""),
-                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                )
-            except Exception:
-                self._client = None
-        elif self.provider == "openrouter":
-            try:
-                import openai
-                import os
-                self._client = openai.OpenAI(
-                    api_key=os.environ.get("OPENROUTER_API_KEY", ""),
-                    base_url="https://openrouter.ai/api/v1",
-                )
-            except Exception:
-                self._client = None
-
-    
-    def complete(self, system: str, user: str) -> tuple[str, int]:
-        """
-        Returns (response_text, token_count).
-        Falls back to a dummy response if no API client is available.
-        """
-        self._ensure_client()
-        if self._client is None:
-            return self._heuristic_response(), 0
-        
-        try:
-            if self.provider == "anthropic":
-                resp = self._client.messages.create(
-                    model=self.model,
-                    max_tokens=16384,
-                    system=system,
-                    messages=[{"role": "user", "content": user}],
-                )
-                text = resp.content[0].text
-                tokens = resp.usage.input_tokens + resp.usage.output_tokens
-                return text, tokens
-            elif self.provider in ("openai", "google", "openrouter"):
-                resp = self._client.chat.completions.create(
-                    model=self.model,
-                    max_tokens=16384,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user}
-                    ]
-                )
-                text = resp.choices[0].message.content or ""
-                tokens = resp.usage.total_tokens if resp.usage else 0
-                return text, tokens
-        except Exception as e:
-            return json.dumps({
-                "reasoning": f"API error: {e}",
-                "beliefs": {},
-                "action": "EXAMINE_LOCATION",
-                "action_args": {}
-            }), 0
-        
-        return self._heuristic_response(), 0
-
-
-    @staticmethod    
-    def _heuristic_response() -> str:
-        return json.dumps({
-            "reasoning": "No LLM available; using heuristic fallback.",
-            "beliefs": {
-                "top_suspect": None, "suspect_confidence": 0.0,
-                "top_weapon": None, "weapon_confidence": 0.0,
-                "top_location": None, "location_confidence": 0.0,
-                "eliminated_suspects": [], "new_facts": [],
-            },
-            "action": "EXAMINE_LOCATION",
-            "action_args": {}
-        })
-
-
-# ---------------------------------------------------------------------------
 # LLM Agent
 # ---------------------------------------------------------------------------
 
-class LLMAgent(BaseAgent):
+class LLMAgent(BaseAgent, LLMRole):
     """
-    Pure LLM prompting agent.
+    Pure LLM prompting agent (the Detective role).
 
     Strategy: send all observations to the LLM, parse structured JSON output
     containing reasoning, belief updates, and the chosen action.
+
+    Inherits :class:`LLMRole`, so its model transport is the same unified one
+    shared with the NPC and Corporate roles — point them all at a LiteLLM
+    gateway in one call via ``LLMRole.configure_litellm(...)``.
     """
+
+    role_name = "detective"
+
     def __init__(
         self,
         agent_id: str = "llm_agent",
         provider: str = "anthropic",
         model: str = "claude-sonnet-4-20250514",
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        api_key_env: str | None = None,
     ):
-        super().__init__(agent_id)
-        self.llm = LLMClient(provider=provider, model=model)
+        BaseAgent.__init__(self, agent_id)
+        LLMRole.__init__(self, LLMConfig(
+            provider=provider or "anthropic", model=model,
+            base_url=base_url, api_key=api_key, api_key_env=api_key_env,
+        ))
         self.briefing: str = ""
         self._env: MysteryEnvironment | None = None
         self._suspect_names: dict[str, str] = {}   # id -> name
@@ -242,12 +151,29 @@ class LLMAgent(BaseAgent):
             self.belief_state.location_probs[loc.name] = 1.0 / max(1, len(state.locations))
 
     
+    def _complete(self, system: str, user: str) -> tuple[str, int]:
+        """Unified-transport completion with the legacy graceful fallback:
+        no client / missing key → heuristic JSON; API error → error envelope.
+        Behaviour is byte-identical to the retired LLMClient.complete()."""
+        from agents.llm_role import LLMUnavailable
+        try:
+            return self.chat(system, user)
+        except LLMUnavailable:
+            return LLMClient._heuristic_response(), 0
+        except Exception as e:  # noqa: BLE001 — preserve legacy error envelope
+            return json.dumps({
+                "reasoning": f"API error: {e}",
+                "beliefs": {},
+                "action": "EXAMINE_LOCATION",
+                "action_args": {},
+            }), 0
+
     def decide_action(self, observation: str) -> tuple[AgentAction, dict[str, str]]:
         budget = self._env.budget_remaining if self._env else 0
         user_msg = _build_user_message(
             self.briefing, self.observation_history, observation, budget,
         )
-        response_text, tokens = self.llm.complete(SYSTEM_PROMPT, user_msg)
+        response_text, tokens = self._complete(SYSTEM_PROMPT, user_msg)
         self.total_tokens_used += tokens
         self.last_raw_response = response_text
 
