@@ -113,17 +113,25 @@ def _run_one(args, level_name: str, seed: int, traj_path: Path) -> tuple[str, in
     npc = _build_npc_responder(args)
     cfg = AGENT_CONFIGS[args.agent]
 
+    # Provenance: when routed through a LiteLLM gateway, --litellm-model (if set)
+    # is the actual model for EVERY role, and the transport is the gateway — record
+    # that, not the AGENT_CONFIGS default, so trajectory headers aren't mislabeled.
+    eff_model = args.litellm_model or args.model or cfg.get("model")
+    eff_provider = "litellm" if args.litellm_url else cfg.get("provider")
+    npc_active = args.npc_provider not in (None, "fallback")
+    eff_npc_model = (args.litellm_model or args.npc_model) if npc_active else None
+
     traj_path.parent.mkdir(parents=True, exist_ok=True)
     with TrajectoryWriter(traj_path) as w:
         w.write_header(
             state=state,
             level=level_name,
             agent=args.agent,
-            model=args.model or cfg.get("model"),
-            provider=cfg.get("provider"),
+            model=eff_model,
+            provider=eff_provider,
             npc_provider=args.npc_provider or "fallback",
-            npc_model=args.npc_model if args.npc_provider not in (None, "fallback") else None,
-            npc_seed=args.npc_seed if args.npc_provider not in (None, "fallback") else None,
+            npc_model=eff_npc_model,
+            npc_seed=args.npc_seed if npc_active else None,
             instance_id=f"seed_{seed}",
         )
         try:
@@ -188,7 +196,9 @@ def main() -> int:
             jobs.append((lvl, s, base / lvl / f"seed_{s}.jsonl"))
 
     total = len(jobs)
-    print(f"Sweep: agent={args.agent} model={args.model or AGENT_CONFIGS[args.agent].get('model')} "
+    banner_model = args.litellm_model or args.model or AGENT_CONFIGS[args.agent].get("model")
+    via = " via litellm" if args.litellm_url else ""
+    print(f"Sweep: agent={args.agent} model={banner_model}{via} "
           f"jobs={total} workers={args.workers}")
     print(f"Output: {base}")
 
