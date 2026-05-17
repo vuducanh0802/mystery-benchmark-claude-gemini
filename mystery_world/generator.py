@@ -17,6 +17,7 @@ Generation pipeline:
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 from typing import Any
 
@@ -1164,6 +1165,28 @@ def _generate_crime_scene_clues(
 # Master generator
 # ---------------------------------------------------------------------------
 
+def _apply_culprit_concealment(state: WorldState, seed: int) -> None:
+    """Pre-conceal a fraction of culprit-linked evidence (deterministic, keyed).
+
+    Concealment only raises ``discovery_difficulty`` (and records
+    ``concealment_prob``); it never flips ``state`` to HIDDEN, so structural
+    /Locard solvability and the oracle upper bound are preserved — the
+    concealed evidence stays *in principle* discoverable, just stochastically
+    harder to perceive at run time.
+    """
+    p = state.config.culprit_conceal_prob
+    if p <= 0.0:
+        return
+    for ev in state.evidence.values():
+        if ev.linked_character_id != state.culprit_id or ev.is_red_herring:
+            continue
+        digest = hashlib.blake2b((ev.id + ":conceal").encode(), digest_size=8).digest()
+        key = [int(seed), int.from_bytes(digest, "big")]
+        if float(np.random.default_rng(key).random()) < p:
+            ev.concealment_prob = p
+            ev.discovery_difficulty = min(1.0, ev.discovery_difficulty + 0.3)
+
+
 def generate_mystery(
     config: ComplexityConfig,
     seed: int,
@@ -1502,7 +1525,9 @@ def generate_mystery(
         # 10. Verify solvability
         check = verify_solvability(state)
         if check["solvable"]:
+            _apply_culprit_concealment(state, seed)
             return state
-    
+
     # If we exhausted retries, return last attempt with a warning
-    return state   # type: ignore[possibly-undefined] 
+    _apply_culprit_concealment(state, seed)   # type: ignore[possibly-undefined]
+    return state   # type: ignore[possibly-undefined]

@@ -84,6 +84,7 @@ class OracleAgent(BaseAgent):
 
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:  # type: ignore[override]
         self._env = env
+        env._perception_disabled = True   # oracle is the exact upper bound — no stochastic misses
         self._plan = self._build_plan()
         # Set beliefs to ground truth immediately (oracle is omniscient)
         state = env.state

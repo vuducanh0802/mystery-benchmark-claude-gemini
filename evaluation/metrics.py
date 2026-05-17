@@ -65,7 +65,10 @@ class EpisodeMetrics:
     # Action efficiency
     examine_total: int = 0
     examine_hit: int = 0
-    examine_efficiency: float = 0.0
+    examine_present: int = 0          # EXAMINEs that landed on an evidence-bearing object
+    examine_efficiency: float = 0.0   # targeting skill = examine_present / examine_total (roll-independent)
+    perception_misses: int = 0
+    perception_recall: float = 0.0    # stochastic layer = examine_hit / examine_present
 
     # --- Belief accuracy ---
     # Tracked at each step: was the top belief the ground truth?
@@ -102,6 +105,12 @@ class EpisodeMetrics:
             "partial_score": self.partial_score,
             "belief_accuracy_trace": self.belief_accuracy_trace,
             "final_belief_accuracy": self.final_belief_accuracy,
+            "examine_total": self.examine_total,
+            "examine_hit": self.examine_hit,
+            "examine_present": self.examine_present,
+            "examine_efficiency": self.examine_efficiency,
+            "perception_misses": self.perception_misses,
+            "perception_recall": self.perception_recall,
             "total_relevant_evidence": self.total_relevant_evidence,
             "evidence_discovered": self.evidence_discovered,
             "clue_efficiency": self.clue_efficiency,
@@ -188,11 +197,19 @@ def compute_episode_metrics(
     m.total_steps = episode_summary.get("steps_elapsed", 0)
     m.event_count = episode_summary.get("event_count", 0)
 
-    # Examine efficiency (tracked by the environment)
+    # Examine efficiency, decomposed into a targeting layer and a stochastic
+    # perception layer so a probabilistic miss is not blamed on the agent.
     m.examine_total = episode_summary.get("examine_total", 0)
     m.examine_hit = episode_summary.get("examine_hit", 0)
+    m.examine_present = episode_summary.get("examine_present", 0)
+    m.perception_misses = len(episode_summary.get("perception_misses", []))
+    # Targeting skill: did the agent EXAMINE evidence-bearing objects? (roll-independent)
     m.examine_efficiency = (
-        m.examine_hit / m.examine_total if m.examine_total > 0 else 1.0
+        m.examine_present / m.examine_total if m.examine_total > 0 else 1.0
+    )
+    # Stochastic layer: of the evidence-bearing objects examined, how many revealed?
+    m.perception_recall = (
+        m.examine_hit / m.examine_present if m.examine_present > 0 else 1.0
     )
 
     # Score breakdown — populated when the agent ACCUSEd with scoring kwargs
@@ -256,6 +273,7 @@ def compute_episode_metrics(
         m.incorrect_eliminations = 0
         m.elimination_score = 0.0
         m.examine_efficiency = 0.0
+        m.perception_recall = 0.0
         m.clue_efficiency = 0.0
         m.final_belief_accuracy = 0.0
         m.composite_score = 0.0
@@ -286,6 +304,7 @@ class AggregateMetrics:
     mean_triangle_recall: float = 0.0
     mean_elimination_score: float = 0.0
     mean_examine_efficiency: float = 0.0
+    mean_perception_recall: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -301,6 +320,8 @@ class AggregateMetrics:
             "mean_triangle_score": round(self.mean_triangle_score, 4),
             "mean_alibi_score": round(self.mean_alibi_score, 4),
             "mean_composite_score": round(self.mean_composite_score, 4),
+            "mean_examine_efficiency": round(self.mean_examine_efficiency, 4),
+            "mean_perception_recall": round(self.mean_perception_recall, 4),
         }
 
 
@@ -337,5 +358,6 @@ def aggregate_metrics(episodes: list[EpisodeMetrics], level: int) -> AggregateMe
         ) / n,
         mean_elimination_score=sum(e.elimination_score for e in level_eps) / n,
         mean_examine_efficiency=sum(e.examine_efficiency for e in level_eps) / n,
+        mean_perception_recall=sum(e.perception_recall for e in level_eps) / n,
     )
     return agg

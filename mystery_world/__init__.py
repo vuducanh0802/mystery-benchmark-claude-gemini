@@ -61,6 +61,12 @@ class ComplexityConfig:
     evidence_difficulty_max: float = 0.6   # maximum discovery difficulty
     testimony_unreliability: float = 0.0   # probability a testimonial is unreliable
 
+    # --- Stochastic discovery (decay-retry perception model) ---
+    detective_miss_base: float = 0.0       # base per-EXAMINE miss prob; effective = base × discovery_difficulty × decay**attempt
+    examine_attempt_decay: float = 0.5     # geometric decay of miss prob across repeated EXAMINEs of the same object
+    search_miss_multiplier: float = 0.4    # miss-prob multiplier when a thorough SEARCH is used instead of EXAMINE
+    culprit_conceal_prob: float = 0.0      # generation-time: prob each culprit-linked evidence is pre-concealed
+
     # --- Crime scene realism ---
     body_moved_prob: float = 0.0        # probability body was moved from murder location
     body_trace_ambiguity: int = 1       # 1=room named, 2=material named, 3=vague, 4=multiple candidates
@@ -115,6 +121,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         alibi_complexity=1, motive_layers=1,
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.0, evidence_difficulty_min=0.1, evidence_difficulty_max=0.3, testimony_unreliability=0.0,
+        detective_miss_base=0.0, culprit_conceal_prob=0.0,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.20, 0.45, 0.65, 0.85, 1.00),
         body_moved_prob=0.0, body_trace_ambiguity=1, trail_completeness=1.0, witness_specificity=1.0,
         freshness_threshold=3.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=0, 
@@ -128,6 +135,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         alibi_complexity=1, motive_layers=1,
         requires_deduction=True, requires_abduction=False,
         evidence_ambiguity=0.1, evidence_difficulty_min=0.15, evidence_difficulty_max=0.4, testimony_unreliability=0.1,
+        detective_miss_base=0.0, culprit_conceal_prob=0.05,
         allow_suspect_corroborators=False, max_corroborators=1, culprit_alibi_weights=(0.20, 0.40, 0.60, 0.80, 1.00),
         body_moved_prob=0.1, body_trace_ambiguity=2, trail_completeness=0.8, witness_specificity=0.8,
         freshness_threshold=2.5, step_duration_minutes=30, world_start_hour=20, num_route_constraints=0,
@@ -141,6 +149,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         alibi_complexity=2, motive_layers=1,
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.2, evidence_difficulty_min=0.2, evidence_difficulty_max=0.6, testimony_unreliability=0.2,
+        detective_miss_base=0.10, culprit_conceal_prob=0.15,
         allow_suspect_corroborators=False, max_corroborators=2, culprit_alibi_weights=(0.30, 0.50, 0.70, 0.90, 1.00),
         body_moved_prob=0.3, body_trace_ambiguity=3, trail_completeness=0.6, witness_specificity=0.5,
         freshness_threshold=2.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=1,
@@ -154,6 +163,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         alibi_complexity=3, motive_layers=2,
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.35, evidence_difficulty_min=0.3, evidence_difficulty_max=0.7, testimony_unreliability=0.3,
+        detective_miss_base=0.20, culprit_conceal_prob=0.30,
         allow_suspect_corroborators=True, max_corroborators=2, culprit_alibi_weights=(0.20, 0.35, 0.55, 0.80, 1.00),
         body_moved_prob=0.5, body_trace_ambiguity=4, trail_completeness=0.4, witness_specificity=0.3,
         freshness_threshold=1.5, step_duration_minutes=30, world_start_hour=20, num_route_constraints=2,
@@ -167,6 +177,7 @@ COMPLEXITY_PRESETS: dict[ComplexityLevel, ComplexityConfig] = {
         alibi_complexity=4, motive_layers=3,
         requires_deduction=True, requires_abduction=True,
         evidence_ambiguity=0.5, evidence_difficulty_min=0.3, evidence_difficulty_max=0.8, testimony_unreliability=0.4,
+        detective_miss_base=0.30, culprit_conceal_prob=0.45,
         allow_suspect_corroborators=True, max_corroborators=3, culprit_alibi_weights=(0.10, 0.20, 0.40, 0.70, 1.00),
         body_moved_prob=0.7, body_trace_ambiguity=4, trail_completeness=0.2, witness_specificity=0.2,
         freshness_threshold=1.0, step_duration_minutes=30, world_start_hour=20, num_route_constraints=3,

@@ -293,6 +293,8 @@ class Evidence:
     relevance_score: float = 1.0  # how useful for solving the case (0-1)
     description: str = ""
     discovery_difficulty: float = 0.5  # 0=obvious, 1=very hidden
+    concealment_prob: float = 0.0      # generation-time: prob the culprit pre-concealed this
+    examine_attempts: int = 0          # runtime: how many times EXAMINE rolled on this (decay index)
     weather_sensitive: bool = False     # degrades faster in bad weather
     is_reliable: bool = True           # for testimonial evidence; False = contains inaccuracies
     created_at_step: int = 0

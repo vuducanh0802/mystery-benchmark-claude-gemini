@@ -8,6 +8,7 @@ and accepts *actions*.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -52,6 +53,18 @@ class AgentAction(Enum):
     ANALYZE = auto()         # temporal assessment of one piece of evidence
     TRAVEL_TIME = auto()     # minimum steps between two rooms (constraint-aware)
     CHECK_ROUTE = auto()     # was a specific passage open at a given clock time?
+
+def _perception_roll(seed: int, evidence_id: str, attempt_idx: int) -> float:
+    """Deterministic uniform draw in [0, 1) keyed by (world seed, evidence, attempt).
+
+    Pure function of its inputs — independent of global RNG ordering or agent
+    determinism — so a logged trajectory replays bit-for-bit and
+    ``verify_reproducibility`` stays valid even with non-deterministic agents.
+    """
+    digest = hashlib.blake2b(evidence_id.encode(), digest_size=8).digest()
+    key = [int(seed), int.from_bytes(digest, "big"), int(attempt_idx)]
+    return float(np.random.default_rng(key).random())
+
 
 @dataclass
 class ActionResult:
@@ -201,6 +214,9 @@ class MysteryEnvironment:
         self._interview_histories: dict[str, list[dict[str, str]]] = {}
         self._examine_total: int = 0
         self._examine_hit: int = 0
+        self._examine_present: int = 0   # EXAMINEs where the object DID hold usable evidence (roll-independent)
+        self._perception_misses: list[dict[str, Any]] = []
+        self._perception_disabled: bool = False   # oracles / solvability checks bypass the roll
         self._revealed_alibi_claims: list[dict[str, str]] = []
         self._npc_responder: NPCResponder | None = None
 
@@ -473,7 +489,9 @@ class MysteryEnvironment:
         return ActionResult(True, obs)
 
 
-    def _handle_examine_object(self, object_name: str = "", **_: Any) -> ActionResult:
+    def _handle_examine_object(
+        self, object_name: str = "", thorough: bool = False, **_: Any
+    ) -> ActionResult:
         loc = self.get_current_location()
         if loc is None:
             return ActionResult(False, "No current location.")
@@ -481,15 +499,57 @@ class MysteryEnvironment:
             obj = self._state.objects.get(oid)
             if obj and obj.name.lower() == object_name.lower():
                 self._examine_total += 1
-                parts = [f"You examine the {obj.name}. {obj.description}"]
-                if obj.evidence_id:
-                    ev = self._state.evidence.get(obj.evidence_id)
-                    if ev and ev.state not in (EvidenceState.HIDDEN, EvidenceState.DESTROYED):
-                        self._examine_hit += 1
-                        parts.append(f"[Evidence {ev.id}] {ev.description}")
-                        self._discovered_evidence.add(ev.id)
-                        return ActionResult(True, " ".join(parts), evidence_found=[ev.id])
-                return ActionResult(True, " ".join(parts))
+                base_obs = f"You examine the {obj.name}. {obj.description}"
+                if not obj.evidence_id:
+                    return ActionResult(True, base_obs)
+                ev = self._state.evidence.get(obj.evidence_id)
+                if ev is None or ev.state in (EvidenceState.HIDDEN, EvidenceState.DESTROYED):
+                    return ActionResult(True, base_obs)
+
+                # Object holds usable evidence. Already found → re-reveal, no roll.
+                if ev.id in self._discovered_evidence:
+                    return ActionResult(
+                        True, f"{base_obs} [Evidence {ev.id}] {ev.description}",
+                        evidence_found=[ev.id],
+                    )
+
+                self._examine_present += 1
+
+                # Decay-retry perception roll (keyed, reproducible). Disabled for
+                # oracles / solvability checks so they remain exact upper bounds.
+                cfg = self._state.config
+                if self._perception_disabled or cfg.detective_miss_base <= 0.0:
+                    miss_p = 0.0
+                else:
+                    miss_p = (
+                        cfg.detective_miss_base
+                        * ev.discovery_difficulty
+                        * (cfg.examine_attempt_decay ** ev.examine_attempts)
+                    )
+                    if thorough:
+                        miss_p *= cfg.search_miss_multiplier
+                roll = _perception_roll(self._state.seed, ev.id, ev.examine_attempts)
+                ev.examine_attempts += 1
+
+                if roll < miss_p:
+                    # Missed. Observation MUST be byte-identical to the
+                    # "object holds no evidence" branch so the agent cannot
+                    # distinguish a perceptual miss from an empty object.
+                    self._perception_misses.append({
+                        "step": self._state.current_step,
+                        "evidence_id": ev.id,
+                        "attempt": ev.examine_attempts - 1,
+                        "roll": round(roll, 6),
+                        "miss_p": round(miss_p, 6),
+                    })
+                    return ActionResult(True, base_obs)
+
+                self._examine_hit += 1
+                self._discovered_evidence.add(ev.id)
+                return ActionResult(
+                    True, f"{base_obs} [Evidence {ev.id}] {ev.description}",
+                    evidence_found=[ev.id],
+                )
         return ActionResult(False, f"No object called '{object_name}' here.")
 
     
@@ -706,6 +766,9 @@ class MysteryEnvironment:
             "total_evidence": len(self._state.evidence),
             "examine_total": self._examine_total,
             "examine_hit": self._examine_hit,
+            "examine_present": self._examine_present,
+            "perception_misses": self._perception_misses,
+            "perception_disabled": self._perception_disabled,
             "characters_interviewed": list(self._interviewed_characters),
             "alibi_claims_revealed": len(self._revealed_alibi_claims),
             "total_characters": len(self._state.characters),
@@ -744,6 +807,8 @@ class MysteryEnvironment:
             "discovered_evidence": list(self._discovered_evidence),
             "examine_total": self._examine_total,
             "examine_hit": self._examine_hit,
+            "examine_present": self._examine_present,
+            "perception_misses": self._perception_misses,
             "interviewed_characters": list(self._interviewed_characters),
             "interview_histories": self._interview_histories,
             "revealed_alibi_claims": self._revealed_alibi_claims,
@@ -767,6 +832,8 @@ class MysteryEnvironment:
         self._discovered_evidence = set(session["discovered_evidence"])
         self._examine_total = session.get("examine_total", 0)
         self._examine_hit = session.get("examine_hit", 0)
+        self._examine_present = session.get("examine_present", 0)
+        self._perception_misses = session.get("perception_misses", [])
         self._interviewed_characters = set(session["interviewed_characters"])
         self._interview_histories = session["interview_histories"]
         self._revealed_alibi_claims = session.get("revealed_alibi_claims", [])

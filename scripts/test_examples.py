@@ -32,6 +32,9 @@ def _replay_example(ex: dict) -> dict:
     config = COMPLEXITY_PRESETS[level]
     state  = generate_mystery(seed=ex["seed"], config=config)
     env    = MysteryEnvironment(state)
+    # Recorded sequences are the oracle's exact proof; replay them with the
+    # stochastic perception layer bypassed, exactly as OracleAgent does.
+    env._perception_disabled = True
     _      = render_initial_briefing(env)  # initialise env (records start)
 
     for step_rec in ex["oracle_action_sequence"]:
