@@ -2,19 +2,26 @@
 Oracle calibration agent.
 
 This agent knows the ground truth (culprit, weapon, location) but must still
-interact with the game API to legally discover evidence before citing it.
+interact with the game API to legally discover evidence before citing it. It
+runs in one of two modes, selected at construction:
 
-Purpose: establish an upper-bound on benchmark scores by running a
-deterministic minimum-action proof for every case. Any real agent's scores
-should fall at or below the oracle's composite score.
+- ``mode="max_score"`` — collect *every* fresh, non-red-herring evidence item
+  per Locard triangle edge. Establishes the score upper bound: any real agent's
+  composite score should fall at or below this run.
+- ``mode="min_action"`` — collect exactly *one* (easiest) evidence item per
+  edge. Establishes the minimum-action baseline: the fewest legal steps that
+  still yield a fully-supported accusation.
+
+The two modes share all routing, alibi, elimination, and accusation logic; they
+differ only in how many evidence targets ``_build_plan`` keeps per edge.
 
 Strategy
 --------
-1. Inspect ground truth to build a ``OraclePlan``:
-   - One evidence item per Locard triangle edge (easiest fresh non-red-herring)
+1. Inspect ground truth to build an ``OraclePlan``:
+   - Evidence target(s) per Locard triangle edge (mode-dependent count)
    - Alibi contradiction data from the culprit's alibi_claims
 2. Plan an efficient visit order (nearest-neighbour TSP over evidence locations)
-3. Execute: navigate → discover each evidence item
+3. Execute: navigate → discover each evidence item → interview as needed
 4. ACCUSE with the full triangle + alibi dict
 """
 
@@ -22,7 +29,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from agents.base_agent import BaseAgent
 from mystery_world.entities import (
@@ -31,6 +38,8 @@ from mystery_world.entities import (
     EvidenceState,
 )
 from mystery_world.world import AgentAction, MysteryEnvironment
+
+OracleMode = Literal["max_score", "min_action"]
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +63,8 @@ class _EliminationTarget:
 
 @dataclass
 class OraclePlan:
+    # One list per triangle edge. In min_action mode each list holds at most
+    # one target; in max_score mode it holds every valid target for the edge.
     sw_targets: list[_EvidenceTarget] = field(default_factory=list)
     wv_targets: list[_EvidenceTarget] = field(default_factory=list)
     sr_targets: list[_EvidenceTarget] = field(default_factory=list)
@@ -72,15 +83,21 @@ class OraclePlan:
 
 class OracleAgent(BaseAgent):
     """
-    Deterministic calibration agent.
-
-    Knows everything, proves with minimum legal actions.
+    Deterministic calibration agent. Knows everything, proves it with legal
+    actions. ``mode`` picks the upper-bound (``max_score``) or minimum-action
+    (``min_action``) calibration target.
     """
 
-    def __init__(self, agent_id: str = "oracle"):
+    def __init__(self, agent_id: str = "oracle", mode: OracleMode = "max_score"):
         super().__init__(agent_id)
+        if mode not in ("max_score", "min_action"):
+            raise ValueError(
+                f"mode must be 'max_score' or 'min_action', got {mode!r}"
+            )
+        self.mode: OracleMode = mode
         self._env: MysteryEnvironment | None = None
         self._plan: OraclePlan | None = None
+        self._all_ev_targets: list[_EvidenceTarget] = []
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -88,7 +105,7 @@ class OracleAgent(BaseAgent):
 
     def initialize(self, env: MysteryEnvironment, briefing: str) -> None:  # type: ignore[override]
         self._env = env
-        env._perception_disabled = True   # oracle is the exact upper bound — no stochastic misses
+        env._perception_disabled = True   # oracle is the exact bound — no stochastic misses
         self._plan = self._build_plan()
         # Set beliefs to ground truth immediately (oracle is omniscient)
         state = env.state
@@ -110,7 +127,7 @@ class OracleAgent(BaseAgent):
         discovered = env._discovered_evidence
         interviewed = env._interviewed_characters
 
-        # Phase 1: collect all required evidence via EXAMINE_OBJECT
+        # Phase 1: collect required evidence via EXAMINE_OBJECT
         for target in self._all_ev_targets:
             if target.evidence_id in discovered:
                 continue
@@ -152,7 +169,6 @@ class OracleAgent(BaseAgent):
         # Phase 3: accuse
         return self._make_accuse_action()
 
-
     def update_beliefs(self, observation: str) -> None:
         pass  # Oracle beliefs are set at initialization
 
@@ -179,7 +195,7 @@ class OracleAgent(BaseAgent):
         if sr_ids:
             kwargs["suspect_room_evidence"] = sr_ids
         if plan.alibi_contradiction:
-            # Update contradiction_evidence to all discovered SR ids
+            # contradiction_evidence is the set of SR ids actually discovered.
             contra = dict(plan.alibi_contradiction)
             contra["contradiction_evidence"] = sr_ids
             kwargs["alibi_contradiction"] = contra
@@ -211,13 +227,14 @@ class OracleAgent(BaseAgent):
         plan.weapon_name = weapon_obj.name if weapon_obj else ""
         plan.location_name = murder_loc.name if murder_loc else ""
 
-        # Triangle targets — collect ALL valid evidence per edge
-        plan.sw_targets = self._all_evidence_for_edge(EdgeType.SUSPECT_WEAPON)
-        plan.wv_targets = self._all_evidence_for_edge(EdgeType.WEAPON_VICTIM)
-        plan.sr_targets = self._all_evidence_for_edge(EdgeType.SUSPECT_ROOM)
+        # Triangle targets — mode decides how many per edge.
+        plan.sw_targets = self._evidence_for_edge(EdgeType.SUSPECT_WEAPON)
+        plan.wv_targets = self._evidence_for_edge(EdgeType.WEAPON_VICTIM)
+        plan.sr_targets = self._evidence_for_edge(EdgeType.SUSPECT_ROOM)
 
-        # Alibi — pass the first SR evidence id for the initial contradiction dict;
-        # _make_accuse_action will overwrite contradiction_evidence with all discovered SR ids.
+        # Alibi — seed contradiction dict with the first SR id; the actual
+        # contradiction_evidence is rewritten to all discovered SR ids in
+        # _make_accuse_action.
         if culprit and culprit.alibi_claims:
             sr_eid = plan.sr_targets[0].evidence_id if plan.sr_targets else None
             plan.alibi_contradiction = self._build_alibi_contradiction(
@@ -296,13 +313,16 @@ class OracleAgent(BaseAgent):
             loc_rank.get(t.location_id, len(plan.visit_order)),
         ))
 
-        # Store all evidence targets for decide_action
         self._all_ev_targets = ev_targets
         return plan
 
+    def _evidence_for_edge(self, edge: EdgeType) -> list[_EvidenceTarget]:
+        """Fresh, non-red-herring evidence targets for ``edge``.
 
-    def _all_evidence_for_edge(self, edge: EdgeType) -> list[_EvidenceTarget]:
-        """Return ALL fresh, non-red-herring evidence targets for this edge."""
+        Candidates are sorted by (HIDDEN-last, difficulty-ascending) so the
+        easiest item is first. ``min_action`` keeps only that easiest item;
+        ``max_score`` keeps them all.
+        """
         env = self._env
         assert env is not None
         state = env.state
@@ -325,6 +345,13 @@ class OracleAgent(BaseAgent):
             if not _relevance_matches_truth(ev.relevance, edge, state):
                 continue
             candidates.append(ev)
+
+        # Deterministic ordering: non-HIDDEN before HIDDEN, then easiest first.
+        candidates.sort(
+            key=lambda e: (e.state == EvidenceState.HIDDEN, e.discovery_difficulty)
+        )
+        if self.mode == "min_action":
+            candidates = candidates[:1]
 
         targets = []
         for ev in candidates:
@@ -359,7 +386,6 @@ class OracleAgent(BaseAgent):
             "claimed_time": before.clock_time_str,
             "contradiction_evidence": sr_ids,
         }
-        
 
     def _greedy_visit_order(self, start_id: str, target_ids: list[str]) -> list[str]:
         """Nearest-neighbour tour from start through all target location IDs."""
@@ -405,7 +431,6 @@ class OracleAgent(BaseAgent):
         assert env is not None
         locations = env.state.locations
         visited = {from_id}
-        # queue stores (current_id, path_so_far)
         queue: deque[tuple[str, list[str]]] = deque([(from_id, [])])
         while queue:
             current, path = queue.popleft()
@@ -436,8 +461,8 @@ class OracleAgent(BaseAgent):
 
         Returns
         -------
-        dict with keys: accusation_correct, triangle_score, alibi_score,
-        composite_score, actions_taken, plan_summary.
+        dict with keys: accusation_correct, actions_taken, plan_summary
+        (sw/wv/sr_evidence are lists of evidence IDs), episode_summary.
         """
         self.initialize(env, briefing)
 
@@ -449,13 +474,6 @@ class OracleAgent(BaseAgent):
                 break
 
         summary = env.get_episode_summary()
-        details = env.action_history[-1].get("kwargs", {}) if env.action_history else {}
-
-        # Extract scoring from the last action result (the ACCUSE)
-        accuse_record = next(
-            (r for r in reversed(env.action_history) if r["action"] == "ACCUSE"),
-            {},
-        )
 
         return {
             "accusation_correct": env.accusation_correct,

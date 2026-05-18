@@ -38,8 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agents.heuristic_agent import HeuristicAgent
 from agents.llm_agent import LLMAgent
-from agents.minimum_action_oracle_agent import OracleAgent as MinActionOracle
-from agents.maximum_score_oracle_agent import OracleAgent as MaxScoreOracle
+from agents.oracle_agent import OracleAgent
 from evaluation.runner import run_episode
 from evaluation.trajectory import TrajectoryWriter
 from mystery_world import COMPLEXITY_PRESETS, ComplexityLevel
@@ -64,9 +63,9 @@ def _make_agent(agent_name: str, model: str | None):
     if agent_name == "heuristic":
         return HeuristicAgent(agent_id="heuristic")
     if agent_name == "oracle_min":
-        return MinActionOracle(agent_id="oracle_min")
+        return OracleAgent(agent_id="oracle_min", mode="min_action")
     if agent_name == "oracle_max":
-        return MaxScoreOracle(agent_id="oracle_max")
+        return OracleAgent(agent_id="oracle_max", mode="max_score")
     return LLMAgent(
         agent_id=agent_name,
         provider=cfg["provider"],

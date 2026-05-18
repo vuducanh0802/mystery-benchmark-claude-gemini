@@ -23,7 +23,7 @@ from mystery_world import COMPLEXITY_PRESETS, ComplexityLevel
 from mystery_world.generator import generate_mystery
 from mystery_world.narrator import render_initial_briefing
 from mystery_world.world import AgentAction, MysteryEnvironment
-from agents.maximum_score_oracle_agent import OracleAgent
+from agents.oracle_agent import OracleAgent
 
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 EXAMPLES_DIR.mkdir(exist_ok=True)

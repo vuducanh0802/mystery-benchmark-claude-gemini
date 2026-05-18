@@ -19,7 +19,7 @@ from mystery_world import COMPLEXITY_PRESETS, ComplexityLevel
 from mystery_world.generator import generate_mystery
 from mystery_world.narrator import render_initial_briefing, render_step_observation
 from mystery_world.world import AgentAction, MysteryEnvironment, WorldState
-from agents.maximum_score_oracle_agent import OracleAgent
+from agents.oracle_agent import OracleAgent
 
 
 # ---------------------------------------------------------------------------
