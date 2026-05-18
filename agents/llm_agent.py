@@ -12,13 +12,12 @@ import json
 import re
 from typing import Any
 
-from agents.base_agent import BaseAgent, BeliefState
-from agents.llm_role import LLMClient, LLMConfig, LLMRole
+from agents.base_agent import BaseAgent, BeliefState, LLMClient, LLMConfig
 from mystery_world.world import AgentAction, MysteryEnvironment
 
 # Re-exported for backward compatibility: `from agents.llm_agent import LLMClient`
 # still works (used by agents.symbolic_agent). The implementation now lives in
-# agents.llm_role alongside the unified LLMRole transport.
+# agents.base_agent alongside the shared LLM transport.
 __all__ = ["LLMAgent", "LLMClient", "SYSTEM_PROMPT"]
 
 # ---------------------------------------------------------------------------
@@ -91,16 +90,16 @@ def _build_user_message(briefing: str, history: list[str], current_obs: str, bud
 # LLM Agent
 # ---------------------------------------------------------------------------
 
-class LLMAgent(BaseAgent, LLMRole):
+class LLMAgent(BaseAgent):
     """
     Pure LLM prompting agent (the Detective role).
 
     Strategy: send all observations to the LLM, parse structured JSON output
     containing reasoning, belief updates, and the chosen action.
 
-    Inherits :class:`LLMRole`, so its model transport is the same unified one
-    shared with the NPC and Corporate roles — point them all at a LiteLLM
-    gateway in one call via ``LLMRole.configure_litellm(...)``.
+    Its model transport is :class:`BaseAgent`'s shared one — the same transport
+    every NPC uses — so a single ``BaseAgent.configure_litellm(...)`` repoints
+    the whole benchmark at one LiteLLM gateway.
     """
 
     role_name = "detective"
@@ -115,8 +114,7 @@ class LLMAgent(BaseAgent, LLMRole):
         api_key: str | None = None,
         api_key_env: str | None = None,
     ):
-        BaseAgent.__init__(self, agent_id)
-        LLMRole.__init__(self, LLMConfig(
+        BaseAgent.__init__(self, agent_id, config=LLMConfig(
             provider=provider or "anthropic", model=model,
             base_url=base_url, api_key=api_key, api_key_env=api_key_env,
         ))
@@ -155,7 +153,7 @@ class LLMAgent(BaseAgent, LLMRole):
         """Unified-transport completion with the legacy graceful fallback:
         no client / missing key → heuristic JSON; API error → error envelope.
         Behaviour is byte-identical to the retired LLMClient.complete()."""
-        from agents.llm_role import LLMUnavailable
+        from agents.base_agent import LLMUnavailable
         try:
             return self.chat(system, user)
         except LLMUnavailable:

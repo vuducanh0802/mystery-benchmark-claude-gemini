@@ -177,8 +177,8 @@ def main() -> int:
     args = p.parse_args()
 
     if args.litellm_url:
-        from agents.llm_role import LLMRole
-        LLMRole.configure_litellm(
+        from agents.base_agent import BaseAgent
+        BaseAgent.configure_litellm(
             args.litellm_url,
             api_key_env=args.litellm_key_env,
             model=args.litellm_model,

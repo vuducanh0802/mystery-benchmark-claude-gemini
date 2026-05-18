@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from agents.llm_role import LLMConfig, LLMRole, LLMUnavailable
+from agents.base_agent import BaseAgent, LLMConfig, LLMUnavailable
 
 if TYPE_CHECKING:
     from mystery_world.entities import Character
@@ -178,14 +178,15 @@ STRICT RULES — follow these exactly:
 {lying_block}"""
 
 
-class NPCResponder(LLMRole):
+class NPCResponder(BaseAgent):
     """
     Generates NPC interview responses using a local or remote LLM.
 
-    This is the **NPC role**. It inherits :class:`LLMRole`, so it shares the
-    exact same model transport as the Detective and Corporate roles — repoint
-    the whole benchmark at a LiteLLM gateway with one
-    ``LLMRole.configure_litellm(...)`` call.
+    An NPC is a player too, so it is a :class:`BaseAgent` — it just answers
+    questions instead of solving the case (it doesn't override the
+    ``decide_action`` / ``update_beliefs`` hooks). It shares the exact same
+    model transport as the detective, so one ``BaseAgent.configure_litellm(...)``
+    call repoints the whole benchmark at a LiteLLM gateway.
 
     The public surface (``base_url``, ``model``, ``seed``, ``api_key``,
     ``api_key_env`` and ``respond(...)``) is unchanged from the pre-refactor
@@ -217,7 +218,7 @@ class NPCResponder(LLMRole):
         # endpoint). An explicit api_key_env still fails loud if unset.
         if api_key is None and api_key_env is None:
             api_key = "EMPTY"
-        super().__init__(LLMConfig(
+        super().__init__(agent_id="npc", config=LLMConfig(
             provider="openai", model=model, base_url=base_url,
             api_key=api_key, api_key_env=api_key_env,
             seed=seed, max_tokens=512, temperature=0.7,
