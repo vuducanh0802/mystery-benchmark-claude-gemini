@@ -1,29 +1,29 @@
 """
-Sweep one agent across N levels x M seeds with concurrency + resume.
+Sweep one detective agent across N levels x M seeds with concurrency + resume.
 
-Each (agent, level, seed) emits one JSONL trajectory at:
-    {trajectory_dir}/{agent}/{level}/seed_{seed}.jsonl
+Each (detective, level, seed) emits one JSONL trajectory at:
+    {trajectory_dir}/{detective}/{level}/seed_{seed}.jsonl
 
 Re-running the same command skips seeds whose JSONL already exists.
 
 Examples:
     # Heuristic baseline, all 5 levels, 200 seeds, 8 workers
-    uv run scripts/sweep_eval.py --agent heuristic \
+    uv run scripts/sweep_eval.py --detective-agent heuristic \
         --levels TRIVIAL EASY MEDIUM HARD EXPERT --seeds 0-199 \
         --trajectory-dir results/trajectories --workers 8
 
     # Claude via Anthropic native
-    uv run scripts/sweep_eval.py --agent claude --model claude-sonnet-4-6 \
+    uv run scripts/sweep_eval.py --detective-agent claude --detective-model claude-sonnet-4-6 \
         --levels TRIVIAL EASY MEDIUM HARD EXPERT --seeds 0-199 \
         --trajectory-dir results/trajectories --workers 8
 
     # Qwen3.5 via OpenRouter
-    uv run scripts/sweep_eval.py --agent openrouter --model qwen/qwen3.5-27b \
+    uv run scripts/sweep_eval.py --detective-agent openrouter --detective-model qwen/qwen3.5-27b \
         --levels TRIVIAL EASY MEDIUM HARD EXPERT --seeds 0-199 \
         --trajectory-dir results/trajectories --workers 8
 
     # With OpenAI-direct NPCs (gpt-4o-mini)
-    uv run scripts/sweep_eval.py --agent claude ... \
+    uv run scripts/sweep_eval.py --detective-agent claude ... \
         --npc-provider openai --npc-model gpt-4o-mini
 """
 from __future__ import annotations
@@ -32,13 +32,13 @@ import argparse
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agents.heuristic_agent import HeuristicAgent
-from agents.llm_agent import LLMAgent
-from agents.oracle_agent import OracleAgent
+from agents.culprit_agent import LLMCulpritAgent
+from agents.detective_agent import HeuristicAgent, LLMDetectiveAgent, OracleAgent
 from evaluation.runner import run_episode
 from evaluation.trajectory import TrajectoryWriter
 from mystery_world import COMPLEXITY_PRESETS, ComplexityLevel
@@ -58,16 +58,16 @@ AGENT_CONFIGS = {
 }
 
 
-def _make_agent(agent_name: str, model: str | None):
-    cfg = AGENT_CONFIGS[agent_name]
-    if agent_name == "heuristic":
+def _make_detective_agent(detective_agent_name: str, model: str | None):
+    cfg = AGENT_CONFIGS[detective_agent_name]
+    if detective_agent_name == "heuristic":
         return HeuristicAgent(agent_id="heuristic")
-    if agent_name == "oracle_min":
+    if detective_agent_name == "oracle_min":
         return OracleAgent(agent_id="oracle_min", mode="min_action")
-    if agent_name == "oracle_max":
+    if detective_agent_name == "oracle_max":
         return OracleAgent(agent_id="oracle_max", mode="max_score")
-    return LLMAgent(
-        agent_id=agent_name,
+    return LLMDetectiveAgent(
+        agent_id=detective_agent_name,
         provider=cfg["provider"],
         model=model or cfg["model"],
     )
@@ -103,19 +103,34 @@ def _build_npc_responder(args) -> object | None:
     raise ValueError(f"unknown --npc-provider {args.npc_provider}")
 
 
+def _build_culprit_agent(args) -> object | None:
+    if not args.culprit_model:
+        return None
+    return LLMCulpritAgent(
+        agent_id="culprit",
+        provider=args.culprit_provider,
+        model=args.culprit_model,
+    )
+
+
 def _run_one(args, level_name: str, seed: int, traj_path: Path) -> tuple[str, int, str]:
     if traj_path.exists():
         return (level_name, seed, "skipped")
     config = COMPLEXITY_PRESETS[ComplexityLevel[level_name]]
     state = generate_mystery(seed=seed, config=config)
-    agent = _make_agent(args.agent, args.model)
+    detective_agent = _make_detective_agent(
+        args.detective_agent, args.detective_model,
+    )
     npc = _build_npc_responder(args)
-    cfg = AGENT_CONFIGS[args.agent]
+    culprit = _build_culprit_agent(args)
+    if culprit is not None:
+        state.config = replace(state.config, free_culprit_actions=True)
+    cfg = AGENT_CONFIGS[args.detective_agent]
 
     # Provenance: when routed through a LiteLLM gateway, --litellm-model (if set)
     # is the actual model for EVERY role, and the transport is the gateway — record
     # that, not the AGENT_CONFIGS default, so trajectory headers aren't mislabeled.
-    eff_model = args.litellm_model or args.model or cfg.get("model")
+    eff_model = args.litellm_model or args.detective_model or cfg.get("model")
     eff_provider = "litellm" if args.litellm_url else cfg.get("provider")
     npc_active = args.npc_provider not in (None, "fallback")
     eff_npc_model = (args.litellm_model or args.npc_model) if npc_active else None
@@ -125,7 +140,7 @@ def _run_one(args, level_name: str, seed: int, traj_path: Path) -> tuple[str, in
         w.write_header(
             state=state,
             level=level_name,
-            agent=args.agent,
+            agent=args.detective_agent,
             model=eff_model,
             provider=eff_provider,
             npc_provider=args.npc_provider or "fallback",
@@ -135,8 +150,9 @@ def _run_one(args, level_name: str, seed: int, traj_path: Path) -> tuple[str, in
         )
         try:
             result = run_episode(
-                agent, state, complexity_level=ComplexityLevel[level_name].value,
-                verbose=False, npc_responder=npc, trajectory_writer=w,
+                detective_agent, state, complexity_level=ComplexityLevel[level_name].value,
+                verbose=False, npc_responder=npc, culprit_agent=culprit,
+                trajectory_writer=w,
             )
             w.write_footer(
                 episode_summary=result.episode_summary,
@@ -155,8 +171,14 @@ def _run_one(args, level_name: str, seed: int, traj_path: Path) -> tuple[str, in
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--agent", required=True, choices=list(AGENT_CONFIGS.keys()))
-    p.add_argument("--model", default=None)
+    p.add_argument(
+        "--detective-agent",
+        "--agent",
+        dest="detective_agent",
+        required=True,
+        choices=list(AGENT_CONFIGS.keys()),
+    )
+    p.add_argument("--detective-model", "--model", dest="detective_model", default=None)
     p.add_argument("--levels", nargs="+", default=["TRIVIAL", "EASY", "MEDIUM", "HARD", "EXPERT"])
     p.add_argument("--seeds", default="0-199", help="e.g. '0-199' or '0,1,2'")
     p.add_argument("--trajectory-dir", required=True)
@@ -166,6 +188,10 @@ def main() -> int:
     p.add_argument("--npc-model", default="gpt-4o-mini")
     p.add_argument("--npc-url", default=None, help="vLLM base URL (only used with --npc-provider vllm)")
     p.add_argument("--npc-seed", type=int, default=42)
+    p.add_argument("--culprit-provider", default="openai",
+                   choices=["anthropic", "openai", "google", "openrouter"])
+    p.add_argument("--culprit-model", default=None,
+                   help="Enable a free-acting LLM culprit using this model.")
     p.add_argument("--litellm-url", default=None,
                    help="Route ALL roles (detective + NPC) through this LiteLLM "
                         "(OpenAI-compatible) gateway. Single injection point.")
@@ -188,16 +214,20 @@ def main() -> int:
               f"model={args.litellm_model or 'per-role'})")
 
     seeds = _parse_seeds(args.seeds)
-    base = Path(args.trajectory_dir) / args.agent
+    base = Path(args.trajectory_dir) / args.detective_agent
     jobs: list[tuple[str, int, Path]] = []
     for lvl in args.levels:
         for s in seeds:
             jobs.append((lvl, s, base / lvl / f"seed_{s}.jsonl"))
 
     total = len(jobs)
-    banner_model = args.litellm_model or args.model or AGENT_CONFIGS[args.agent].get("model")
+    banner_model = (
+        args.litellm_model
+        or args.detective_model
+        or AGENT_CONFIGS[args.detective_agent].get("model")
+    )
     via = " via litellm" if args.litellm_url else ""
-    print(f"Sweep: agent={args.agent} model={banner_model}{via} "
+    print(f"Sweep: detective={args.detective_agent} model={banner_model}{via} "
           f"jobs={total} workers={args.workers}")
     print(f"Output: {base}")
 

@@ -1,21 +1,21 @@
 """
-Run agent evaluation on a generated benchmark suite.
+Run detective evaluation on a generated benchmark suite.
 
 Usage examples:
     # Heuristic baseline (no API key needed):
-    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent heuristic --output-dir results/heuristic/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --detective-agent heuristic --output-dir results/heuristic/
 
     # Claude (Anthropic):
-    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent claude --output-dir results/claude/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --detective-agent claude --output-dir results/claude/
 
     # ChatGPT (OpenAI):
-    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent chatgpt --output-dir results/chatgpt/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --detective-agent chatgpt --output-dir results/chatgpt/
 
     # Gemini (Google):
-    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent gemini --output-dir results/gemini/
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --detective-agent gemini --output-dir results/gemini/
 
     # With LLM-powered NPC interviews (requires vLLM or compatible endpoint):
-    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --agent claude \\
+    uv run scripts/run_evaluation.py --benchmark-dir data/benchmark_v1/ --detective-agent claude \\
         --npc-url http://localhost:8000/v1 --npc-model Qwen/Qwen2.5-27B-Instruct \\
         --output-dir results/claude_npc/
 """
@@ -30,8 +30,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agents.heuristic_agent import HeuristicAgent
-from agents.llm_agent import LLMAgent
+from agents.culprit_agent import LLMCulpritAgent
+from agents.detective_agent import HeuristicAgent, LLMDetectiveAgent
 from benchmark.generate import load_benchmark_suite
 from evaluation.runner import run_benchmark
 
@@ -70,16 +70,27 @@ AGENT_CONFIGS = {
 }
 
 
-def make_agent_factory(agent_name: str, model_override: str | None):
-    cfg = AGENT_CONFIGS[agent_name]
+def make_detective_agent_factory(detective_agent_name: str, model_override: str | None):
+    cfg = AGENT_CONFIGS[detective_agent_name]
 
     def factory():
-        if agent_name == "heuristic":
+        if detective_agent_name == "heuristic":
             return HeuristicAgent(agent_id="heuristic")
         model = model_override or cfg["model"]
-        return LLMAgent(
-            agent_id=agent_name,
+        return LLMDetectiveAgent(
+            agent_id=detective_agent_name,
             provider=cfg["provider"],
+            model=model,
+        )
+
+    return factory
+
+
+def make_culprit_agent_factory(provider: str, model: str):
+    def factory():
+        return LLMCulpritAgent(
+            agent_id="culprit",
+            provider=provider,
             model=model,
         )
 
@@ -101,12 +112,20 @@ def main() -> None:
     )
     parser.add_argument("--benchmark-dir", dest="benchmark", required=True, help="Path to benchmark directory")
     parser.add_argument(
+        "--detective-agent",
         "--agent",
+        dest="detective_agent",
         choices=list(AGENT_CONFIGS.keys()),
         default="heuristic",
-        help="Agent to evaluate",
+        help="Detective agent to evaluate",
     )
-    parser.add_argument("--model", default=None, help="Override default model for the chosen agent")
+    parser.add_argument(
+        "--detective-model",
+        "--model",
+        dest="detective_model",
+        default=None,
+        help="Override default model for the chosen detective agent",
+    )
     parser.add_argument("--output-dir", dest="output", required=True, help="Output directory for results")
     parser.add_argument("--max-instances", type=int, default=None)
     parser.add_argument(
@@ -133,6 +152,17 @@ def main() -> None:
         help="Fixed seed for NPC responses (default: 42)",
     )
     parser.add_argument(
+        "--culprit-provider",
+        choices=["anthropic", "openai", "google", "openrouter"],
+        default="openai",
+        help="Provider for the optional free-acting culprit agent.",
+    )
+    parser.add_argument(
+        "--culprit-model",
+        default=None,
+        help="Enable a free-acting LLM culprit using this model. If omitted, culprit uses legacy event processors.",
+    )
+    parser.add_argument(
         "--trajectory-dir",
         default=None,
         help="If set, write JSONL trajectory logs (one file per episode) for replay/reproducibility.",
@@ -156,7 +186,7 @@ def main() -> None:
     if args.max_instances:
         instances = instances[: args.max_instances]
 
-    logger.info(f"Instances: {len(instances)} | Agent: {args.agent}")
+    logger.info(f"Instances: {len(instances)} | Detective: {args.detective_agent}")
 
     # NPC responder
     npc_responder = None
@@ -172,21 +202,28 @@ def main() -> None:
         logger.info("NPC responder: deterministic fallback (no --npc-url provided)")
 
     # Run
-    cfg = AGENT_CONFIGS[args.agent]
+    cfg = AGENT_CONFIGS[args.detective_agent]
     traj_meta = {
-        "agent": args.agent,
-        "model": args.model or cfg.get("model"),
-        "provider": cfg.get("provider"),
+        "detective_agent": args.detective_agent,
+        "detective_model": args.detective_model or cfg.get("model"),
+        "detective_provider": cfg.get("provider"),
         "npc_provider": "vllm" if args.npc_url else "fallback",
         "npc_model": args.npc_model if args.npc_url else None,
         "npc_seed": args.npc_seed if args.npc_url else None,
     }
     results = run_benchmark(
-        agent_factory=make_agent_factory(args.agent, args.model),
+        detective_agent_factory=make_detective_agent_factory(
+            args.detective_agent, args.detective_model,
+        ),
         instances=instances,
         output_dir=args.output,
         verbose=args.verbose,
         npc_responder=npc_responder,
+        culprit_agent_factory=(
+            make_culprit_agent_factory(args.culprit_provider, args.culprit_model)
+            if args.culprit_model
+            else None
+        ),
         trajectory_dir=args.trajectory_dir,
         trajectory_meta=traj_meta,
         skip_existing=args.skip_existing,
@@ -204,14 +241,18 @@ def main() -> None:
     avg_partial = sum(partial_scores) / max(len(partial_scores), 1)
 
     summary = {
-        "agent": args.agent,
-        "model": args.model or AGENT_CONFIGS[args.agent].get("model"),
+        "detective_agent": args.detective_agent,
+        "detective_model": (
+            args.detective_model
+            or AGENT_CONFIGS[args.detective_agent].get("model")
+        ),
         "total_instances": total,
         "solved": solved,
         "solve_rate": round(solved / max(total, 1), 4),
         "avg_partial_score": round(avg_partial, 4),
         "errors": errors,
         "npc_model": args.npc_model if args.npc_url else "fallback",
+        "culprit_model": args.culprit_model,
     }
 
     print("\n" + "=" * 50)

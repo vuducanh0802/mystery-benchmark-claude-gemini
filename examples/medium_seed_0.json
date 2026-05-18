@@ -2,6 +2,8 @@
   "id": "medium_seed_0",
   "complexity": "MEDIUM",
   "seed": 0,
+  "state_seed": 0,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Fern Montague",
@@ -37,12 +39,12 @@
   ],
   "oracle_plan": {
     "sw_evidence": [
-      "ev_693431",
-      "ev_259503"
+      "ev_259503",
+      "ev_693431"
     ],
     "wv_evidence": [
-      "ev_619918",
-      "ev_178991"
+      "ev_178991",
+      "ev_619918"
     ],
     "sr_evidence": [
       "ev_178819"
@@ -59,260 +61,364 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "marble bookend"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wooden stool"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "window ledge"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "coat rack"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "old radiator"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "footstool"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "writing desk"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "porcelain vase"
-      }
+      },
+      "success": true
     },
     {
       "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 21,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 22,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Fern Montague",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 23,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 24,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 25,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 26,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 27,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Petra Prescott",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 28,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 29,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 30,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Observatory Deck"
-      }
+      },
+      "success": true
     },
     {
       "step": 31,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Rosalind Sterling",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 32,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 33,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 34,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Helena Quinlan",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 35,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Fern Montague",
         "weapon_name": "marble bookend",
         "location_name": "Clock Tower",
         "suspect_weapon_evidence": [
-          "ev_693431",
-          "ev_259503"
+          "ev_259503",
+          "ev_693431"
         ],
         "weapon_victim_evidence": [
-          "ev_619918",
-          "ev_178991"
+          "ev_178991",
+          "ev_619918"
         ],
         "suspect_room_evidence": [
           "ev_178819"
@@ -338,7 +444,8 @@
             "corroborator": "Helena Quinlan"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

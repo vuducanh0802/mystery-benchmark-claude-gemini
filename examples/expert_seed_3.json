@@ -2,6 +2,8 @@
   "id": "expert_seed_3",
   "complexity": "EXPERT",
   "seed": 3,
+  "state_seed": 6,
+  "generation_attempt": 3,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Orson Juno",
@@ -74,230 +76,325 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "floor lamp"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Courtyard Terrace"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Attic Storage"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "writing desk"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "armchair"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Courtyard Terrace"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "storage trunk"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Observatory Deck"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Orson Juno",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Cellar Vault"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Silas Sterling",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Observatory Deck"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Nadia Deveraux",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Courtyard Terrace"
-      }
+      },
+      "success": true
     },
     {
       "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Dahlia Thornfield",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 21,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Courtyard Terrace"
-      }
+      },
+      "success": true
     },
     {
       "step": 22,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 23,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 24,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Adrian Prescott",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 25,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 26,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Courtyard Terrace"
-      }
+      },
+      "success": true
     },
     {
       "step": 27,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 28,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Attic Storage"
-      }
+      },
+      "success": true
     },
     {
       "step": 29,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Josette Quinlan",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 30,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 31,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Emory Blackwood",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 32,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Orson Juno",
@@ -339,7 +436,8 @@
             "corroborator": "Emory Blackwood"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

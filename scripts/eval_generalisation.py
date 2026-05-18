@@ -140,8 +140,10 @@ def run_generalisation_eval(
                 params["config"], seed,
                 asset_pool=params["pool"],
             )
-            agent = HeuristicAgent()
-            result = run_episode(agent, ws, complexity_level=3, verbose=False)
+            detective_agent = HeuristicAgent()
+            result = run_episode(
+                detective_agent, ws, complexity_level=3, verbose=False,
+            )
             if result.metrics:
                 metrics_list.append(result.metrics)
 

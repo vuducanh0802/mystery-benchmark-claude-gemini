@@ -48,6 +48,7 @@ class ComplexityConfig:
     npc_move_prob: float = 0.3  # independent NPC relocation probability
     culprit_tamper_prob: float = 0.2   # culprit actively hides / moves evidence
     reactive_events: bool = False      # routine-based NPC movement (HARD/EXPERT only)       
+    free_culprit_actions: bool = False # if True, culprit actions come from an agent, not event processors
 
     # --- Reasoning load ---
     alibi_complexity: int = 2  # how many alibi chains to verify

@@ -2,6 +2,8 @@
   "id": "trivial_seed_1",
   "complexity": "TRIVIAL",
   "seed": 1,
+  "state_seed": 1,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Fern Iverson",
@@ -23,8 +25,8 @@
   ],
   "oracle_plan": {
     "sw_evidence": [
-      "ev_442381",
-      "ev_232082"
+      "ev_232082",
+      "ev_442381"
     ],
     "wv_evidence": [
       "ev_554254"
@@ -46,107 +48,148 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "floor lamp"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "crystal decanter"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "coat rack"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "worn rug"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Attic Storage"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "writing desk"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "old radiator"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Fern Iverson",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Petra Crane",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Fern Iverson",
         "weapon_name": "crystal decanter",
         "location_name": "Servants' Quarters",
         "suspect_weapon_evidence": [
-          "ev_442381",
-          "ev_232082"
+          "ev_232082",
+          "ev_442381"
         ],
         "weapon_victim_evidence": [
           "ev_554254"
@@ -169,7 +212,8 @@
             "corroborator": "Petra Crane"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

@@ -2,6 +2,8 @@
   "id": "medium_seed_2",
   "complexity": "MEDIUM",
   "seed": 2,
+  "state_seed": 2,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Beatrix Greystone",
@@ -58,143 +60,202 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Cellar Vault"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "serving tray"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "footstool"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Dimly-Lit Study"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "old radiator"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "armchair"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wicker basket"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Cellar Vault"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wall mirror"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Beatrix Greystone",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Linnea Juno",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Cellar Vault"
-      }
+      },
+      "success": true
     },
     {
       "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Josette Harlow",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Quinn Montague",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Beatrix Greystone",
@@ -230,7 +291,8 @@
             "corroborator": "Quinn Montague"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

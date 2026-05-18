@@ -63,8 +63,11 @@ def _run_oracle(level: ComplexityLevel, seed: int) -> dict | None:
     for i, record in enumerate(env.action_history, 1):
         action_sequence.append({
             "step":   i,
+            "actor_id": record.get("actor_id", "detective"),
+            "role": "detective",
             "action": record["action"],
             "kwargs": record["kwargs"],
+            "success": record.get("success", True),
         })
 
     # Ground truth
@@ -107,6 +110,8 @@ def _run_oracle(level: ComplexityLevel, seed: int) -> dict | None:
         "id":              f"{level.name.lower()}_seed_{seed}",
         "complexity":      level.name,
         "seed":            seed,
+        "state_seed":      state.seed,
+        "generation_attempt": max(0, state.seed - seed),
         "multi_evidence":  multi_evidence,
         "ground_truth": {
             "culprit":  culprit.full_name  if culprit    else "",

@@ -1,8 +1,9 @@
 """
 NPC response engine for stateful interview interactions.
 
-Lying is injected into the system prompt from ground-truth flags.
-The LLM has no agency over whether to lie — that decision comes from WorldState.
+The prompt provides role facts and local knowledge without prescribing a
+truthfulness or deception strategy. NPCs can respond in character from that
+context.
 Uses any OpenAI-compatible endpoint (vLLM, Together AI, etc.).
 """
 
@@ -61,7 +62,7 @@ def _corroboration_summary(char: "Character", state: "WorldState") -> str:
     """                                                                                                                                                                                
     If this character is a genuine alibi corroborator for someone,
     tell them that fact so they can confirm it truthfully.                                                                                                                             
-    Lying corroborators are handled separately by _lying_instruction.
+    False-alibi context is handled separately by _private_context.
     """                                                                                                                                                                                
     lines = []                          
     for other in state.characters.values():                                                                                                                                            
@@ -77,37 +78,43 @@ def _corroboration_summary(char: "Character", state: "WorldState") -> str:
     return "\n".join(lines) if lines else ""                                                                                                                                           
 
 
-def _lying_instruction(char: "Character", state: "WorldState") -> str:
-    """
-    Returns ground-truth-derived instruction text telling the character HOW to lie.
-    Empty string if the character should be honest.
-    """
+def _private_context(char: "Character", state: "WorldState") -> str:
+    """Return private role facts without prescribing a response strategy."""
     culprit = state.get_culprit()
     parts: list[str] = []
 
     if char.is_culprit:
-        alibi_claim = char.alibi_details or "you were alone and did not see anyone"
-        parts.append(
-            "IMPORTANT: You committed the murder. Never admit this under any circumstances. "
-            f"If asked about your whereabouts at the time of the crime, claim: \"{alibi_claim}\". "
-            "If pressed hard, deflect by expressing concern or casting vague suspicion on others. "
-            "Do not contradict yourself."
-        )
+        victim = state.get_victim()
+        weapon = state.objects.get(state.murder_weapon_id)
+        murder_loc = state.locations.get(state.murder_location_id)
+        facts = [
+            f"- You committed the murder of {victim.full_name if victim else 'the victim'}.",
+            f"- The murder weapon was {weapon.name if weapon else 'unknown'}.",
+            f"- The murder happened in the {murder_loc.name if murder_loc else 'unknown location'}.",
+        ]
+        if state.motive:
+            facts.append(f"- Your motive: {state.motive}.")
+        if char.alibi_details:
+            facts.append(f"- Your existing alibi claim: {char.alibi_details}")
+        facts.append("- Your objective: avoid being identified as the culprit.")
+        parts.extend(facts)
     elif (
         culprit is not None
         and culprit.alibi_corroborator_id == char.id
         and not culprit.alibi_corroboration_is_genuine
     ):
         parts.append(
-            f"IMPORTANT: You have agreed to provide a false alibi for {culprit.full_name}. "
-            f"If asked where {culprit.full_name} was, confirm they were with you. "
-            "Do not admit this arrangement — act as if it is the simple truth."
+            f"- You previously agreed to provide a false alibi for {culprit.full_name}."
         )
 
-    return "\n".join(parts)
+    return "\n".join(parts) if parts else "- No private facts beyond your own memories and relationships."
 
 
-def build_npc_system_prompt(char: "Character", state: "WorldState") -> str:
+def build_npc_system_prompt(
+    char: "Character",
+    state: "WorldState",
+    questioner_name: str = "the detective",
+) -> str:
     from mystery_world.entities import CharacterRole
     role_label = "suspect" if CharacterRole.SUSPECT in char.roles else "witness"
 
@@ -141,14 +148,14 @@ def build_npc_system_prompt(char: "Character", state: "WorldState") -> str:
             f"You have no alibi and no one can confirm your whereabouts."
         )
 
-    lying_block = _lying_instruction(char, state)
+    private_block = _private_context(char, state)
 
     known_locations = ", ".join(loc.name for loc in state.locations.values())
     known_people = ", ".join(
         c.full_name for c in state.characters.values() if c.id != char.id and c.is_alive
     )
 
-    return f"""You are {char.full_name}, a {char.personality} {role_label} being questioned by a detective about a recent murder.
+    return f"""You are {char.full_name}, a {char.personality} {role_label} speaking with {questioner_name} about a recent murder.
 You are {char.full_name}. You are currently in the {current_loc_name}.
 
 WHAT YOU KNOW (these are the ONLY facts you may draw on):
@@ -161,21 +168,18 @@ Your relationships:
 The only locations that exist: {known_locations}.
 The only other people: {known_people}.
 
-STRICT RULES — follow these exactly:
+PRIVATE CONTEXT:
+{private_block}
+
+RESPONSE BOUNDARIES:
 - You are {char.full_name}. Never refer to yourself in the third person.
-- You may ONLY state facts listed above. Do NOT invent any other names, locations, times, or events.
-- If asked about something not in your knowledge above, say "I don't know" or "I don't recall" — never fabricate.
+- Use the facts, memories, relationships, and private context above as your world model.
+- Do NOT invent any other names, locations, times, objects, or events.
+- If you do not know or do not recall something, you can say so.
 - Do not mention any room, person, or object not in the lists above.
 - Be consistent with everything you have already said in this conversation.
 - Keep responses to 1-3 sentences. Stay in character at all times.
-- Do not volunteer information the detective has not asked about. Answer ONLY the question that was asked — nothing extra.
-- LAYERED ALIBI REVEAL — this is a hard constraint:
-  • When asked simply where you were (e.g. "where were you", "what were you doing at the time"), state ONLY the location and a brief activity. Do NOT mention being alone, by yourself, that no one was there, that you have no alibi, that you cannot be confirmed, or that you spoke to no one. Strip those phrases from any whereabouts text given to you above.
-  • Only reveal whether you were alone or with someone if the detective explicitly asks about company, witnesses, or corroboration — e.g. "was anyone with you", "who else was there", "can anyone confirm", "do you have a witness". Until that follow-up is asked, keep the alone/no-witness detail to yourself.
-  • If your whereabouts text mentions a corroborator (someone who was with you), the same rule applies: don't volunteer their name on the first "where were you" question — just give the location. Mention them only when asked about company or witnesses.
-- If the detective greets you or asks an open-ended question (e.g. "tell me about yourself", "anything to share"), respond briefly without disclosing where you were at the time of the murder. Wait to be asked specifically.
-- Never preemptively defend yourself by stating you were alone or had no witnesses. That is volunteering information.
-{lying_block}"""
+"""
 
 
 class NPCResponder(BaseAgent):
@@ -243,6 +247,8 @@ class NPCResponder(BaseAgent):
         state: "WorldState",
         question: str,
         history: list[dict[str, str]],
+        *,
+        questioner_name: str = "the detective",
     ) -> str:
         """
         Generate the NPC's response to the detective's question.
@@ -252,13 +258,13 @@ class NPCResponder(BaseAgent):
         char : Character
             The NPC being questioned.
         state : WorldState
-            Full ground-truth state (used only for lying injection and witnessed events).
+            Full ground-truth state (used for role facts and witnessed events).
         question : str
             The detective's question.
         history : list[dict]
             Prior turns in this interview: [{"role": "user"|"assistant", "content": "..."}]
         """
-        system = build_npc_system_prompt(char, state)
+        system = build_npc_system_prompt(char, state, questioner_name=questioner_name)
         messages = list(history) + [{"role": "user", "content": question}]
         extra_body: dict[str, Any] = {"seed": self.config.seed}
         # chat_template_kwargs is a vLLM-only knob (Qwen3 "thinking" toggle).

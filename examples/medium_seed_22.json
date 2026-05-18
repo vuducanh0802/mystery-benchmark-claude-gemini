@@ -2,6 +2,8 @@
   "id": "medium_seed_22",
   "complexity": "MEDIUM",
   "seed": 22,
+  "state_seed": 22,
+  "generation_attempt": 0,
   "multi_evidence": false,
   "ground_truth": {
     "culprit": "Nadia Ashworth",
@@ -57,107 +59,151 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "poison vial"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "window ledge"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "serving tray"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Chapel Nook"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Rose Garden"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wooden stool"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Chapel Nook"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Nadia Ashworth",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Rosalind Ravenswood",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Rose Garden"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Kieran Prescott",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Nadia Ashworth",
@@ -193,7 +239,8 @@
             "corroborator": "Rosalind Ravenswood"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

@@ -2,6 +2,8 @@
   "id": "easy_seed_3",
   "complexity": "EASY",
   "seed": 3,
+  "state_seed": 3,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Petra Harlow",
@@ -28,15 +30,15 @@
   ],
   "oracle_plan": {
     "sw_evidence": [
-      "ev_769604",
-      "ev_468491"
+      "ev_468491",
+      "ev_769604"
     ],
     "wv_evidence": [
       "ev_964504"
     ],
     "sr_evidence": [
-      "ev_838124",
-      "ev_657448"
+      "ev_657448",
+      "ev_838124"
     ],
     "alibi_type": "A",
     "alibi_contradiction": {
@@ -50,157 +52,219 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "footstool"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Rose Garden"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "antique revolver"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "storage trunk"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Dimly-Lit Study"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "hat stand"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Rose Garden"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "serving tray"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Dimly-Lit Study"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "porcelain vase"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Dimly-Lit Study"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Petra Harlow",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Cedric Nightingale",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Billiard Room"
-      }
+      },
+      "success": true
     },
     {
       "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Dimly-Lit Study"
-      }
+      },
+      "success": true
     },
     {
       "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Fern Ashworth",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 21,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Petra Harlow",
         "weapon_name": "antique revolver",
         "location_name": "Cellar Vault",
         "suspect_weapon_evidence": [
-          "ev_769604",
-          "ev_468491"
+          "ev_468491",
+          "ev_769604"
         ],
         "weapon_victim_evidence": [
           "ev_964504"
@@ -225,7 +289,8 @@
             "corroborator": "Fern Ashworth"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

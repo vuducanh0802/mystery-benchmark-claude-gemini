@@ -18,7 +18,7 @@ from mystery_world.world import AgentAction, MysteryEnvironment
 # Re-exported for backward compatibility: `from agents.llm_agent import LLMClient`
 # still works (used by agents.symbolic_agent). The implementation now lives in
 # agents.base_agent alongside the shared LLM transport.
-__all__ = ["LLMAgent", "LLMClient", "SYSTEM_PROMPT"]
+__all__ = ["LLMDetectiveAgent", "LLMAgent", "LLMClient", "SYSTEM_PROMPT"]
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -90,7 +90,7 @@ def _build_user_message(briefing: str, history: list[str], current_obs: str, bud
 # LLM Agent
 # ---------------------------------------------------------------------------
 
-class LLMAgent(BaseAgent):
+class LLMDetectiveAgent(BaseAgent):
     """
     Pure LLM prompting agent (the Detective role).
 
@@ -250,4 +250,6 @@ class LLMAgent(BaseAgent):
         
         if beliefs.get("reasoning"):
             bs.reasoning_trace.append(str(beliefs["reasoning"])[:500])
-    
+
+
+LLMAgent = LLMDetectiveAgent

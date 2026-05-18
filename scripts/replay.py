@@ -46,9 +46,15 @@ def main() -> int:
     config = _config_from_header(header)
     state = generate_mystery(seed=header["seed"], config=config)
     env = MysteryEnvironment(state)
+    if header.get("config", {}).get("free_culprit_actions") or any(
+        r.get("actor_id", "detective") != "detective" for r in steps
+    ):
+        env.enable_free_culprit()
 
+    detective_name = header.get("detective_agent", header.get("agent"))
+    detective_model = header.get("detective_model", header.get("model"))
     print(f"Replaying seed={header['seed']} level={header['level']} "
-          f"agent={header['agent']} model={header.get('model')} ({len(steps)} steps)")
+          f"detective={detective_name} model={detective_model} ({len(steps)} steps)")
 
     mismatches = 0
     for rec in steps:
@@ -57,12 +63,17 @@ def main() -> int:
         except KeyError:
             print(f"  ! step {rec['step']}: unknown action {rec['action']}", file=sys.stderr)
             return 1
-        env.step(action, **(rec.get("action_kwargs") or {}))
+        actor_id = rec.get("actor_id", "detective")
+        if actor_id == "detective":
+            env.step(action, **(rec.get("action_kwargs") or {}))
+        else:
+            env.step_for_actor(actor_id, action, **(rec.get("action_kwargs") or {}))
         post_hash = world_state_hash(state)
         ok = (post_hash == rec["world_state_hash"])
         if args.inspect:
             mark = "OK" if ok else "MISMATCH"
-            print(f"  [step {rec['step']:>3}] {rec['action']:<22} {mark}")
+            role = rec.get("role", actor_id)
+            print(f"  [step {rec['step']:>3}] {role:<10} {rec['action']:<22} {mark}")
         if not ok:
             mismatches += 1
             if not args.no_verify:

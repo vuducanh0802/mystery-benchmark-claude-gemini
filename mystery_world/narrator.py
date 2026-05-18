@@ -259,11 +259,70 @@ def render_initial_briefing(env: "MysteryEnvironment") -> str:
     return "\n".join(lines)
 
 
+def render_culprit_briefing(env: "MysteryEnvironment") -> str:
+    """Opening private briefing for a free-acting culprit agent."""
+    state = env.state
+    culprit = state.get_culprit()
+    victim = state.get_victim()
+    weapon = state.objects.get(state.murder_weapon_id)
+    murder_loc = state.locations.get(state.murder_location_id)
+    if culprit is None:
+        return "No culprit is defined for this world."
 
-def render_step_observation(env: "MysteryEnvironment", action_result_text: str) -> str:
+    people = ", ".join(
+        c.full_name for c in state.characters.values()
+        if c.id != culprit.id and c.is_alive
+    )
+    locations = ", ".join(loc.name for loc in state.locations.values())
+    death_time = _step_to_clock(
+        state.murder_step,
+        state.config.world_start_hour,
+        state.config.step_duration_minutes,
+    )
+
+    lines = [
+        "=== CULPRIT PRIVATE BRIEFING ===",
+        f"You are {culprit.full_name}.",
+        f"You killed {victim.full_name if victim else 'the victim'} around {death_time}.",
+        f"The weapon was {weapon.name if weapon else 'unknown'}.",
+        f"The murder happened in the {murder_loc.name if murder_loc else 'unknown location'}.",
+    ]
+    if state.motive:
+        lines.append(f"Your motive: {state.motive}.")
+    if culprit.alibi_details:
+        lines.append(f"Your existing alibi claim: {culprit.alibi_details}")
+    lines.extend([
+        "",
+        "Your objective: avoid being identified as the culprit by the detective.",
+        f"You have a budget of {state.config.max_agent_actions} actions.",
+        "",
+        f"The only locations that exist: {locations}.",
+        f"The only other people: {people}.",
+        "",
+        "Available actions:",
+        "  MOVE (target_location)",
+        "  EXAMINE_LOCATION",
+        "  EXAMINE_OBJECT (object_name)",
+        "  TALK_TO (character_name, question)",
+        "  TAKE_OBJECT (object_name)",
+        "  CHECK_INVENTORY",
+        "  WAIT",
+        "",
+        env.observe_location(culprit.id),
+    ])
+    return "\n".join(lines)
+
+
+
+def render_step_observation(
+    env: "MysteryEnvironment",
+    action_result_text: str,
+    actor_id: str = "detective",
+) -> str:
     """Combine action result with ambient information for a step observation."""
     state = env.state
     parts = [action_result_text]
+    actor_loc = env.get_current_location(actor_id)
 
     # Ambient events the agent might notice
     recent_events = [
@@ -272,21 +331,24 @@ def render_step_observation(env: "MysteryEnvironment", action_result_text: str) 
     ]
     for ev in recent_events:
         # Only show events the agent can perceive (same location or public)
-        if ev.location_id == env.agent_location_id:
+        if actor_loc is not None and ev.location_id == actor_loc.id:
             if ev.event_type.name in ("NPC_MOVE", "NPC_INTERACTION"):
                 parts.append(f"[You notice: {ev.description}]")
             elif ev.event_type.name == "WEATHER_CHANGE":
                 parts.append(f"[The weather shifts: {ev.description}]")
         elif ev.event_type.name == "WEATHER_CHANGE":
             # Weather is globally observable for outdoor locations
-            loc = env.get_current_location()
+            loc = env.get_current_location(actor_id)
             if loc and loc.weather_exposed:
                 parts.append(f"[Weather update: {ev.description}]")
     
     # Budget reminder
-    remaining = env.budget_remaining
+    remaining = env.budget_remaining_for(actor_id)
     if remaining <= 5:
-        parts.append(f"[WARNING: Only {remaining} actions remaining. Consider making your accusation.]")
+        if actor_id == "detective":
+            parts.append(f"[WARNING: Only {remaining} actions remaining. Consider making your accusation.]")
+        else:
+            parts.append(f"[WARNING: Only {remaining} actions remaining.]")
     
     return "\n".join(parts)
 
@@ -326,4 +388,3 @@ def render_character_summary(env: "MysteryEnvironment") -> str: # Thong; summary
     if len(lines) == 1:
         lines.append("No characters interviewed yet.")
     return "\n".join(lines)
-

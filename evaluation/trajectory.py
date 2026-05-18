@@ -13,9 +13,12 @@ File contains one JSON object per line:
       "level": str,                  # ComplexityLevel.name
       "config": dict,                # ComplexityConfig.to_dict()
       "config_hash": str,            # sha256 of canonical config JSON
-      "agent": str,
-      "model": str | null,
-      "provider": str | null,
+      "detective_agent": str,
+      "detective_model": str | null,
+      "detective_provider": str | null,
+      "agent": str,                   # backward-compatible alias
+      "model": str | null,            # backward-compatible alias
+      "provider": str | null,         # backward-compatible alias
       "npc_provider": str | null,
       "npc_model": str | null,
       "npc_seed": int | null,
@@ -28,6 +31,8 @@ File contains one JSON object per line:
     {
       "kind": "step",
       "step": int,
+      "actor_id": str,
+      "role": str,                    # detective | culprit | npc-like role
       "action": str,                 # AgentAction.name
       "action_kwargs": dict,
       "observation": str,            # observation passed INTO the agent for this step
@@ -117,6 +122,9 @@ class TrajectoryWriter:
             "level": level,
             "config": cfg,
             "config_hash": config_hash(cfg),
+            "detective_agent": agent,
+            "detective_model": model,
+            "detective_provider": provider,
             "agent": agent,
             "model": model,
             "provider": provider,
@@ -140,10 +148,14 @@ class TrajectoryWriter:
         result_observation: str,
         success: bool,
         post_state_hash: str,
+        actor_id: str = "detective",
+        role: str = "detective",
     ) -> None:
         self._write({
             "kind": "step",
             "step": step,
+            "actor_id": actor_id,
+            "role": role,
             "action": action,
             "action_kwargs": action_kwargs,
             "observation": observation,
@@ -198,5 +210,11 @@ def trajectory_hash(path: str | Path) -> str:
     sig = []
     for r in recs:
         if r.get("kind") == "step":
-            sig.append((r["step"], r["action"], r["action_kwargs"], r["world_state_hash"]))
+            sig.append((
+                r["step"],
+                r.get("actor_id", "detective"),
+                r["action"],
+                r["action_kwargs"],
+                r["world_state_hash"],
+            ))
     return hashlib.sha256(_stable_json(sig).encode()).hexdigest()

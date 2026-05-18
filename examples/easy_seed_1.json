@@ -2,6 +2,8 @@
   "id": "easy_seed_1",
   "complexity": "EASY",
   "seed": 1,
+  "state_seed": 1,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Silas Elsworth",
@@ -35,144 +37,197 @@
       "ev_743011"
     ],
     "sr_evidence": [
-      "ev_381742",
-      "ev_241801"
+      "ev_241801",
+      "ev_381742"
     ],
     "alibi_type": "A",
     "alibi_contradiction": {
       "claimed_location": "Greenhouse",
       "claimed_time": "8:30 PM",
       "contradiction_evidence": [
-        "ev_381742",
-        "ev_241801"
+        "ev_241801",
+        "ev_381742"
       ]
     }
   },
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "hat stand"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "ornate letter opener"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "serving tray"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
-      "action": "EXAMINE_OBJECT",
-      "kwargs": {
-        "object_name": "side table"
-      }
-    },
-    {
-      "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "porcelain vase"
-      }
+      },
+      "success": true
+    },
+    {
+      "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "side table"
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "writing desk"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wooden stool"
-      }
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Wine Pantry"
-      }
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Silas Elsworth",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Music Salon"
-      }
+      },
+      "success": true
     },
     {
       "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Helena Nightingale",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Servants' Quarters"
-      }
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Cedric Deveraux",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
       "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Silas Elsworth",
@@ -186,15 +241,15 @@
           "ev_743011"
         ],
         "suspect_room_evidence": [
-          "ev_381742",
-          "ev_241801"
+          "ev_241801",
+          "ev_381742"
         ],
         "alibi_contradiction": {
           "claimed_location": "Greenhouse",
           "claimed_time": "8:30 PM",
           "contradiction_evidence": [
-            "ev_381742",
-            "ev_241801"
+            "ev_241801",
+            "ev_381742"
           ]
         },
         "eliminations": {
@@ -207,7 +262,8 @@
             "corroborator": "Cedric Deveraux"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {

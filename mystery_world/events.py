@@ -320,6 +320,8 @@ def process_npc_movement(state: "WorldState", rng: np.random.Generator) -> list[
             continue                                                                 
         if CharacterRole.VICTIM in char.roles:
             continue
+        if char.is_culprit and state.config.free_culprit_actions:
+            continue
 
         loc = state.locations.get(char.location_id)                                  
         if not loc:
@@ -387,6 +389,8 @@ def process_culprit_tampering(state: "WorldState", rng: np.random.Generator) -> 
     """The culprit actively hides or relocates incriminative evidence."""
     from mystery_world.entities import EvidenceState
     events: list[WorldEvent] = []
+    if state.config.free_culprit_actions:
+        return events
     culprit = None
     for c in state.characters.values():
         if c.is_culprit and c.is_alive:

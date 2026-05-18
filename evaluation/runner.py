@@ -1,7 +1,7 @@
 """
 Benchmark execution harness
 
-Runs agent on generated mystery instances, collecting per-step belief
+Runs detective agents on generated mystery instances, collecting per-step belief
 snapshots and final metrics. Supports parallel execution and checkpointing.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import structlog
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ from evaluation.metrics import EpisodeMetrics, compute_episode_metrics
 from evaluation.trajectory import TrajectoryWriter, world_state_hash
 from mystery_world.entities import CharacterRole
 from mystery_world.narrator import (
+    render_culprit_briefing,
     render_character_summary,
     render_evidence_summary,
     render_initial_briefing,
@@ -31,7 +32,7 @@ logger = structlog.get_logger()
 
 @dataclass
 class EpisodeResult:
-    """Full result of running one agent on one mystery instance."""
+    """Full result of running one detective on one mystery instance."""
     instance_id: str = ""
     seed: int = 0
     complexity_level: int = 1
@@ -56,20 +57,23 @@ class EpisodeResult:
 
 
 def run_episode(
-    agent: BaseAgent,
-    world_state: WorldState,
+    detective_agent: BaseAgent | None = None,
+    world_state: WorldState | None = None,
     complexity_level: int = 1,
     verbose: bool = False,
     npc_responder=None,
+    culprit_agent: BaseAgent | None = None,
     trajectory_writer: TrajectoryWriter | None = None,
+    *,
+    agent: BaseAgent | None = None,
 ):
     """
-    Run a single-agent-vs-environment episode.
+    Run a detective-vs-environment episode.
 
     Parameters
     ----------
-    agent: BaseAgent
-        The agent to evaluate.
+    detective_agent: BaseAgent
+        The detective agent to evaluate.
     world_state: WorldState
         A fully generated mystery world.
     complexity_level: int
@@ -81,6 +85,13 @@ def run_episode(
     -------
     EpisodeResult
     """
+    if detective_agent is None:
+        detective_agent = agent
+    if detective_agent is None:
+        raise ValueError("run_episode requires detective_agent")
+    if world_state is None:
+        raise ValueError("run_episode requires world_state")
+
     result = EpisodeResult(
         instance_id=f"seed_{world_state.seed}",
         seed=world_state.seed,
@@ -92,16 +103,20 @@ def run_episode(
         env = MysteryEnvironment(world_state)
         if npc_responder is not None:
             env.set_npc_responder(npc_responder)
+        if culprit_agent is not None:
+            env.enable_free_culprit()
         briefing = render_initial_briefing(env)
 
         if verbose:
             print(briefing)
             print("=" * 60)
         
-        agent.initialize(env, briefing)
+        detective_agent.initialize(env, briefing)
+        if culprit_agent is not None:
+            culprit_agent.initialize(env, render_culprit_briefing(env))
 
         # Collect belief snapshot at step 0
-        result.belief_trace.append(agent.get_belief_snapshot())
+        result.belief_trace.append(detective_agent.get_belief_snapshot())
 
         # Main loop
         max_steps = world_state.config.max_agent_actions + 5   # safety margin
@@ -112,7 +127,7 @@ def run_episode(
             if env.budget_remaining <= 0:
                 # Force accusation
                 action = AgentAction.ACCUSE
-                bs = agent.belief_state
+                bs = detective_agent.belief_state
                 kwargs = {
                     "suspect_name": bs.top_suspect() or "",
                     "weapon_name": bs.top_weapon() or "",
@@ -126,10 +141,10 @@ def run_episode(
                     obs_context += "\n" + render_evidence_summary(env)
                     obs_context += "\n" + render_character_summary(env)
 
-                # Agent decides
-                action, kwargs = agent.decide_action(obs_context)
+                # Detective decides
+                action, kwargs = detective_agent.decide_action(obs_context)
             
-            # Capture observation passed INTO the agent for this step (for replay)
+            # Capture observation passed INTO the detective for this step (for replay)
             input_obs = obs_context if env.budget_remaining > 0 else "[budget exhausted; forcing accusation]"
 
             # Execute action
@@ -141,12 +156,14 @@ def run_episode(
                 print(f"Result: {observation[:300]}")
 
             # Record
-            agent.record_action(action, kwargs, observation)
-            agent.update_beliefs(observation)
+            detective_agent.record_action(action, kwargs, observation)
+            detective_agent.update_beliefs(observation)
 
-            result.belief_trace.append(agent.get_belief_snapshot())
+            result.belief_trace.append(detective_agent.get_belief_snapshot())
             result.action_trace.append({
                 "step": step_idx,
+                "actor_id": "detective",
+                "role": "detective",
                 "action": action.name,
                 "kwargs": kwargs,
                 "success": action_result.success,
@@ -159,11 +176,52 @@ def run_episode(
                     action=action.name,
                     action_kwargs=kwargs,
                     observation=input_obs,
-                    model_response=getattr(agent, "last_raw_response", None),
+                    model_response=getattr(detective_agent, "last_raw_response", None),
                     result_observation=observation,
                     success=action_result.success,
                     post_state_hash=world_state_hash(world_state),
                 )
+
+            if culprit_agent is not None and not env.is_solved:
+                culprit_id = world_state.culprit_id
+                culprit_obs = env.observe_location(culprit_id)
+                culprit_action, culprit_kwargs = culprit_agent.decide_action(culprit_obs)
+                culprit_result = env.step_for_actor(
+                    culprit_id, culprit_action, **culprit_kwargs,
+                )
+                culprit_observation = render_step_observation(
+                    env, culprit_result.observation, actor_id=culprit_id,
+                )
+                culprit_agent.record_action(
+                    culprit_action, culprit_kwargs, culprit_observation,
+                )
+                try:
+                    culprit_agent.update_beliefs(culprit_observation)
+                except NotImplementedError:
+                    pass
+                result.action_trace.append({
+                    "step": step_idx,
+                    "actor_id": culprit_id,
+                    "role": "culprit",
+                    "action": culprit_action.name,
+                    "kwargs": culprit_kwargs,
+                    "success": culprit_result.success,
+                    "observation_preview": culprit_observation[:200],
+                })
+
+                if trajectory_writer is not None:
+                    trajectory_writer.write_step(
+                        step=step_idx,
+                        actor_id=culprit_id,
+                        role="culprit",
+                        action=culprit_action.name,
+                        action_kwargs=culprit_kwargs,
+                        observation=culprit_obs,
+                        model_response=getattr(culprit_agent, "last_raw_response", None),
+                        result_observation=culprit_observation,
+                        success=culprit_result.success,
+                        post_state_hash=world_state_hash(world_state),
+                    )
         
         # Compute metrics
         episode_summary = env.get_episode_summary()
@@ -183,7 +241,7 @@ def run_episode(
             episode_summary=episode_summary,
             belief_snapshots=result.belief_trace,
             ground_truth=ground_truth,
-            total_tokens=agent.total_tokens_used,
+            total_tokens=detective_agent.total_tokens_used,
             complexity_level=complexity_level,
         )
     except Exception as e:
@@ -199,22 +257,25 @@ def run_episode(
 # ---------------------------------------------------------------------------
 
 def run_benchmark(
-    agent_factory,  # Callable[[], BaseAgent]
-    instances: list[tuple[WorldState, int]],  # (world_state, complexity_level)
-    output_dir: str | Path,
+    detective_agent_factory=None,  # Callable[[], BaseAgent]
+    instances: list[tuple[WorldState, int]] | None = None,
+    output_dir: str | Path | None = None,
     verbose: bool = False,
     npc_responder=None,
+    culprit_agent_factory=None,
     trajectory_dir: str | Path | None = None,
     trajectory_meta: dict | None = None,
     skip_existing: bool = False,
+    *,
+    agent_factory=None,
 ):
     """
     Run a full benchmark suite.
 
     Parameters
     ----------
-    agent_factory: callable
-        Function that returns a fresh BaseAgent instance for each episode
+    detective_agent_factory: callable
+        Function that returns a fresh detective BaseAgent instance for each episode
     instances: list of (WorldState, complexity_level)
         Generated benchmark instances.
     output_dir: str or Path
@@ -226,6 +287,15 @@ def run_benchmark(
     -------
     list[EpisodeResult]
     """
+    if detective_agent_factory is None:
+        detective_agent_factory = agent_factory
+    if detective_agent_factory is None:
+        raise ValueError("run_benchmark requires detective_agent_factory")
+    if instances is None:
+        raise ValueError("run_benchmark requires instances")
+    if output_dir is None:
+        raise ValueError("run_benchmark requires output_dir")
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     traj_dir = Path(trajectory_dir) if trajectory_dir else None
@@ -247,16 +317,19 @@ def run_benchmark(
             print(f"Instance {i + 1}/{len(instances)} — Seed: {ws.seed}, Level: {level}")
             print(f"{'=' * 60}")
 
-        agent = agent_factory()
+        detective_agent = detective_agent_factory()
+        culprit_agent = culprit_agent_factory() if culprit_agent_factory is not None else None
+        if culprit_agent is not None:
+            ws.config = replace(ws.config, free_culprit_actions=True)
         writer = None
         if traj_path is not None:
             writer = TrajectoryWriter(traj_path)
             writer.write_header(
                 state=ws,
                 level=str(level),
-                agent=meta.get("agent", "unknown"),
-                model=meta.get("model"),
-                provider=meta.get("provider"),
+                agent=meta.get("detective_agent", meta.get("agent", "unknown")),
+                model=meta.get("detective_model", meta.get("model")),
+                provider=meta.get("detective_provider", meta.get("provider")),
                 npc_provider=meta.get("npc_provider"),
                 npc_model=meta.get("npc_model"),
                 npc_seed=meta.get("npc_seed"),
@@ -264,8 +337,9 @@ def run_benchmark(
             )
         try:
             result = run_episode(
-                agent, ws, complexity_level=level, verbose=verbose,
-                npc_responder=npc_responder, trajectory_writer=writer,
+                detective_agent, ws, complexity_level=level, verbose=verbose,
+                npc_responder=npc_responder, culprit_agent=culprit_agent,
+                trajectory_writer=writer,
             )
             if writer is not None:
                 writer.write_footer(

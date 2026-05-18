@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any
@@ -72,6 +72,9 @@ class ActionResult:
     observation: str = ""
     evidence_found: list[str] = field(default_factory=list)   # evidence IDs
     details: dict[str, Any] = field(default_factory=dict)
+
+
+DETECTIVE_ACTOR_ID = "detective"
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +222,9 @@ class MysteryEnvironment:
         self._perception_disabled: bool = False   # oracles / solvability checks bypass the roll
         self._revealed_alibi_claims: list[dict[str, str]] = []
         self._npc_responder: NPCResponder | None = None
+        self._active_actor_id: str = DETECTIVE_ACTOR_ID
+        self._actor_actions_taken: dict[str, int] = {}
+        self._actor_discovered_evidence: dict[str, set[str]] = {}
 
         # Place agent at a default starting location
         if world_state.locations:
@@ -234,6 +240,20 @@ class MysteryEnvironment:
     def budget_remaining(self) -> int:
         return max(0, self._state.config.max_agent_actions - self.actions_taken)
 
+    def budget_remaining_for(self, actor_id: str = DETECTIVE_ACTOR_ID) -> int:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            return self.budget_remaining
+        used = self._actor_actions_taken.get(actor_id, 0)
+        return max(0, self._state.config.max_agent_actions - used)
+
+    @property
+    def culprit_budget_remaining(self) -> int:
+        return self.budget_remaining_for(self._state.culprit_id)
+
+    def enable_free_culprit(self) -> None:
+        """Route culprit movement/tampering through explicit agent actions."""
+        self._state.config = replace(self._state.config, free_culprit_actions=True)
+
     def set_npc_responder(self, responder: NPCResponder) -> None:
         """Attach an NPC responder for LLM-powered stateful interviews."""
         self._npc_responder = responder
@@ -242,13 +262,55 @@ class MysteryEnvironment:
     # Observation helpers
     # ------------------------------------------------------------------
 
-    def get_current_location(self) -> Location | None:
-        return self._state.locations.get(self.agent_location_id)
+    def _actor_display_name(self, actor_id: str) -> str:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            return "the detective"
+        char = self._state.characters.get(actor_id)
+        return char.full_name if char else actor_id
+
+    def _actor_location_id(self, actor_id: str) -> str:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            return self.agent_location_id
+        char = self._state.characters.get(actor_id)
+        return char.location_id if char else ""
+
+    def _set_actor_location(self, actor_id: str, location_id: str) -> None:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            self.agent_location_id = location_id
+            return
+        char = self._state.characters.get(actor_id)
+        if char is None:
+            return
+        old_loc = self._state.locations.get(char.location_id)
+        if old_loc and actor_id in old_loc.characters_here:
+            old_loc.characters_here.remove(actor_id)
+        char.location_id = location_id
+        new_loc = self._state.locations.get(location_id)
+        if new_loc and actor_id not in new_loc.characters_here:
+            new_loc.characters_here.append(actor_id)
+
+    def _actor_inventory(self, actor_id: str) -> list[str]:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            return self.agent_inventory
+        char = self._state.characters.get(actor_id)
+        if char is None:
+            return []
+        return char.inventory
+
+    def _discovered_for_actor(self, actor_id: str) -> set[str]:
+        if actor_id == DETECTIVE_ACTOR_ID:
+            return self._discovered_evidence
+        return self._actor_discovered_evidence.setdefault(actor_id, set())
+
+    def get_current_location(self, actor_id: str | None = None) -> Location | None:
+        actor_id = actor_id or self._active_actor_id
+        return self._state.locations.get(self._actor_location_id(actor_id))
 
 
-    def observe_location(self) -> str:
+    def observe_location(self, actor_id: str | None = None) -> str:
         """Return a natural-language description of the current location."""
-        loc = self.get_current_location()
+        actor_id = actor_id or self._active_actor_id
+        loc = self.get_current_location(actor_id)
         if loc is None:
             return "You are nowhere."
         parts = [f"You are in the {loc.name}. {loc.description}"]
@@ -256,7 +318,11 @@ class MysteryEnvironment:
         chars_here = [
             self._state.characters[cid]
             for cid in loc.characters_here
-            if cid in self._state.characters and self._state.characters[cid].is_alive
+            if (
+                cid in self._state.characters
+                and self._state.characters[cid].is_alive
+                and cid != actor_id
+            )
         ]
         # Dead bodies
         dead_here = [
@@ -307,18 +373,48 @@ class MysteryEnvironment:
     # Action execution
     # ------------------------------------------------------------------
     def step(self, action: AgentAction, **kwargs: Any) -> ActionResult:
-        """Execute an agent action and advance the world by one time step."""
-        if self.is_solved:
+        """Execute a detective action and advance the world by one time step."""
+        return self.step_for_actor(DETECTIVE_ACTOR_ID, action, **kwargs)
+
+    def step_for_actor(
+        self,
+        actor_id: str,
+        action: AgentAction,
+        *,
+        advance_world: bool = True,
+        **kwargs: Any,
+    ) -> ActionResult:
+        """Execute an action for the detective or an in-world character."""
+        is_detective = actor_id == DETECTIVE_ACTOR_ID
+        if is_detective and self.is_solved:
             return ActionResult(success=False, observation="The case is already closed.")
-        if self.budget_remaining <= 0 and action != AgentAction.ACCUSE:
+        if not is_detective:
+            actor = self._state.characters.get(actor_id)
+            if actor is None or not actor.is_alive:
+                return ActionResult(False, f"Actor '{actor_id}' cannot act.")
+            if action == AgentAction.ACCUSE:
+                return ActionResult(False, "Only the detective can make a final accusation.")
+        if self.budget_remaining_for(actor_id) <= 0 and (is_detective and action != AgentAction.ACCUSE):
             return ActionResult(success=False, observation="You have exhausted your action budget. You must ACCUSE now.")
+        if self.budget_remaining_for(actor_id) <= 0 and not is_detective:
+            return ActionResult(False, f"{self._actor_display_name(actor_id)} has exhausted their action budget.")
         
-        result = self._dispatch_action(action, **kwargs)
+        prev_actor = self._active_actor_id
+        self._active_actor_id = actor_id
+        try:
+            result = self._dispatch_action(action, **kwargs)
+        finally:
+            self._active_actor_id = prev_actor
 
         # Record
-        self.actions_taken += 1
+        if is_detective:
+            self.actions_taken += 1
+        else:
+            self._actor_actions_taken[actor_id] = self._actor_actions_taken.get(actor_id, 0) + 1
         self.action_history.append({
             "step": self._state.current_step,
+            "actor_id": actor_id,
+            "actor_name": self._actor_display_name(actor_id),
             "action": action.name,
             "kwargs": dict(kwargs),
             "success": result.success,
@@ -326,9 +422,10 @@ class MysteryEnvironment:
         })
 
         # Advance world simulation (dynamic events)
-        self._state.current_step += 1
-        new_events = process_all_events(self._state, self._rng)
-        self._state.event_log.extend(new_events)
+        if advance_world:
+            self._state.current_step += 1
+            new_events = process_all_events(self._state, self._rng)
+            self._state.event_log.extend(new_events)
 
         return result
 
@@ -467,7 +564,8 @@ class MysteryEnvironment:
         target_location: str = "",
         **_: Any
     ) -> ActionResult:
-        loc = self.get_current_location()
+        actor_id = self._active_actor_id
+        loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "Cannot move: current location unknown.")
         # Allow moving by name or ID
@@ -479,32 +577,41 @@ class MysteryEnvironment:
                 break
         if target_id is None:
             return ActionResult(False, f"Cannot move to '{target_location}'. Available {', '.join(self._state.locations[a].name for a in loc.adjacent_ids if a in self._state.locations)}.")
-        self.agent_location_id = target_id
-        obs = self.observe_location()
+        self._set_actor_location(actor_id, target_id)
+        obs = self.observe_location(actor_id)
         return ActionResult(True, f"You move to the {self._state.locations[target_id].name}.\n{obs}")
 
 
     def _handle_examine_location(self, **_: Any) -> ActionResult:
-        obs = self.observe_location()
+        obs = self.observe_location(self._active_actor_id)
         return ActionResult(True, obs)
 
 
     def _handle_examine_object(
         self, object_name: str = "", thorough: bool = False, **_: Any
     ) -> ActionResult:
-        loc = self.get_current_location()
+        actor_id = self._active_actor_id
+        loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "No current location.")
         for oid in loc.objects_here:
             obj = self._state.objects.get(oid)
             if obj and obj.name.lower() == object_name.lower():
-                self._examine_total += 1
+                if actor_id == DETECTIVE_ACTOR_ID:
+                    self._examine_total += 1
                 base_obs = f"You examine the {obj.name}. {obj.description}"
                 if not obj.evidence_id:
                     return ActionResult(True, base_obs)
                 ev = self._state.evidence.get(obj.evidence_id)
                 if ev is None or ev.state in (EvidenceState.HIDDEN, EvidenceState.DESTROYED):
                     return ActionResult(True, base_obs)
+
+                if actor_id != DETECTIVE_ACTOR_ID:
+                    self._discovered_for_actor(actor_id).add(ev.id)
+                    return ActionResult(
+                        True, f"{base_obs} [Evidence {ev.id}] {ev.description}",
+                        evidence_found=[ev.id],
+                    )
 
                 # Object holds usable evidence. Already found → re-reveal, no roll.
                 if ev.id in self._discovered_evidence:
@@ -554,14 +661,21 @@ class MysteryEnvironment:
 
     
     def _handle_talk(self, character_name: str = "", question: str = "", **_: Any) -> ActionResult:
-        loc = self.get_current_location()
+        actor_id = self._active_actor_id
+        loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "No current location.")
         for cid in loc.characters_here:
             char = self._state.characters.get(cid)
-            if char and char.is_alive and char.full_name.lower() == character_name.lower():
-                self._interviewed_characters.add(cid)
-                return self._generate_interview(char, question)
+            if (
+                char
+                and char.is_alive
+                and cid != actor_id
+                and char.full_name.lower() == character_name.lower()
+            ):
+                if actor_id == DETECTIVE_ACTOR_ID:
+                    self._interviewed_characters.add(cid)
+                return self._generate_interview(char, question, questioner_id=actor_id)
 
         for cid, char in self._state.characters.items():
             if char.full_name.lower() == character_name.lower() and not char.is_alive:
@@ -569,21 +683,28 @@ class MysteryEnvironment:
         return ActionResult(False, f"'{character_name}' is not here or cannot be spoken to.")
 
 
-    def _generate_interview(self, char: Character, question: str = "") -> ActionResult:
+    def _generate_interview(
+        self,
+        char: Character,
+        question: str = "",
+        *,
+        questioner_id: str = DETECTIVE_ACTOR_ID,
+    ) -> ActionResult:
         """Stateful multi-turn interview.
 
         Uses NPCResponder (LLM) when attached; deterministic fallback otherwise.
-        Lying is injected from ground-truth flags — the LLM does not decide it.
+        The prompt provides role facts but does not prescribe a lying strategy.
         """
         if not question:
             question = "Where were you at the time of the murder?"
         cid = char.id
-        if cid not in self._interview_histories:
-            self._interview_histories[cid] = []
-        history = self._interview_histories[cid]
+        history_key = cid if questioner_id == DETECTIVE_ACTOR_ID else f"{questioner_id}->{cid}"
+        if history_key not in self._interview_histories:
+            self._interview_histories[history_key] = []
+        history = self._interview_histories[history_key]
 
         # Alibi provenance: interviewing the culprit reveals their alibi claims
-        if char.is_culprit and char.alibi_claims:
+        if questioner_id == DETECTIVE_ACTOR_ID and char.is_culprit and char.alibi_claims:
             for claim in char.alibi_claims:
                 self._revealed_alibi_claims.append({
                     "character": char.full_name,
@@ -592,22 +713,37 @@ class MysteryEnvironment:
                 })
 
         if self._npc_responder is not None:
-            response = self._npc_responder.respond(char, self._state, question, history)
+            response = self._npc_responder.respond(
+                char,
+                self._state,
+                question,
+                history,
+                questioner_name=self._actor_display_name(questioner_id),
+            )
             history.append({"role": "user", "content": question})
             history.append({"role": "assistant", "content": response})
             return ActionResult(True, f'{char.full_name}: "{response}"')
 
-        return self._template_interview(char, question, history)
+        return self._template_interview(char, question, history, questioner_id=questioner_id)
 
     def _template_interview(
-        self, char: Character, question: str, history: list[dict],
+        self,
+        char: Character,
+        question: str,
+        history: list[dict],
+        *,
+        questioner_id: str = DETECTIVE_ACTOR_ID,
     ) -> ActionResult:
         """Deterministic fallback used when no LLM responder is attached."""
-        parts = [f'You ask {char.full_name}: "{question}"']
+        if questioner_id == DETECTIVE_ACTOR_ID:
+            parts = [f'You ask {char.full_name}: "{question}"']
+        else:
+            parts = [f'{self._actor_display_name(questioner_id)} asks {char.full_name}: "{question}"']
         if char.is_culprit:
-            parts.append(f"{char.full_name} seems evasive and avoids answering directly.")
             if char.has_alibi:
-                parts.append(f'After a pause they say: "{char.alibi_details}"')
+                parts.append(f'{char.full_name} says: "{char.alibi_details}"')
+            else:
+                parts.append(f"{char.full_name} says they cannot recall anything specific.")
         elif char.has_alibi:
             parts.append(f'{char.full_name} says: "{char.alibi_details}"')
         else:
@@ -726,6 +862,18 @@ class MysteryEnvironment:
 
 
     def _handle_inventory(self, **_: Any) -> ActionResult:
+        actor_id = self._active_actor_id
+        if actor_id != DETECTIVE_ACTOR_ID:
+            inventory = self._actor_inventory(actor_id)
+            if not inventory:
+                return ActionResult(True, "You are carrying nothing.")
+            parts = ["You are carrying:"]
+            for oid in inventory:
+                obj = self._state.objects.get(oid)
+                if obj:
+                    parts.append(f"- {obj.name}")
+            return ActionResult(True, "\n".join(parts))
+
         if not self._discovered_evidence:
             return ActionResult(True, "Your evidence collection is empty.")
         parts = ["Evidence collected:"]
@@ -737,7 +885,8 @@ class MysteryEnvironment:
 
 
     def _handle_take(self, object_name: str = "", **_: Any) -> ActionResult:
-        loc = self.get_current_location()
+        actor_id = self._active_actor_id
+        loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "No current location.")
         for oid in loc.objects_here:
@@ -746,7 +895,10 @@ class MysteryEnvironment:
                 if not obj.portable:
                     return ActionResult(False, f"The {obj.name} cannot be taken.")
                 loc.objects_here.remove(oid)
-                self.agent_inventory.append(oid)
+                self._actor_inventory(actor_id).append(oid)
+                obj.location_id = f"inventory:{actor_id}"
+                if obj.evidence_id and obj.evidence_id in self._state.evidence:
+                    self._state.evidence[obj.evidence_id].location_id = obj.location_id
                 return ActionResult(True, f"You take the {obj.name}.")
         return ActionResult(False, f"No object called '{object_name}' here.")
 
@@ -775,6 +927,8 @@ class MysteryEnvironment:
             "steps_elapsed": self._state.current_step,
             "event_count": len(self._state.event_log),
             "action_history": self.action_history,
+            "actor_actions_taken": dict(self._actor_actions_taken),
+            "free_culprit_actions": self._state.config.free_culprit_actions,
             "score_result": self._last_score_result,
         }
 
@@ -813,6 +967,12 @@ class MysteryEnvironment:
             "interview_histories": self._interview_histories,
             "revealed_alibi_claims": self._revealed_alibi_claims,
             "action_history": self.action_history,
+            "active_actor_id": self._active_actor_id,
+            "actor_actions_taken": self._actor_actions_taken,
+            "actor_discovered_evidence": {
+                actor_id: sorted(eids)
+                for actor_id, eids in self._actor_discovered_evidence.items()
+            },
         }
         (directory / "session.json").write_text(json.dumps(session, indent=2))
         return directory
@@ -838,6 +998,12 @@ class MysteryEnvironment:
         self._interview_histories = session["interview_histories"]
         self._revealed_alibi_claims = session.get("revealed_alibi_claims", [])
         self.action_history = session["action_history"]
+        self._active_actor_id = session.get("active_actor_id", DETECTIVE_ACTOR_ID)
+        self._actor_actions_taken = session.get("actor_actions_taken", {})
+        self._actor_discovered_evidence = {
+            actor_id: set(eids)
+            for actor_id, eids in session.get("actor_discovered_evidence", {}).items()
+        }
 
 
 # ---------------------------------------------------------------------------

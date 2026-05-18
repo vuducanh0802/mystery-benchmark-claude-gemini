@@ -28,14 +28,19 @@ from mystery_world.generator import generate_mystery
 def _run_once(level_name: str, seed: int, out: Path) -> str:
     config = COMPLEXITY_PRESETS[ComplexityLevel[level_name]]
     state = generate_mystery(seed=seed, config=config)
-    agent = HeuristicAgent(agent_id="heuristic")
+    detective_agent = HeuristicAgent(agent_id="heuristic")
     with TrajectoryWriter(out) as w:
         w.write_header(
             state=state, level=level_name,
             agent="heuristic", model=None, provider=None,
             instance_id=f"seed_{seed}",
         )
-        result = run_episode(agent, state, complexity_level=ComplexityLevel[level_name].value, trajectory_writer=w)
+        result = run_episode(
+            detective_agent,
+            state,
+            complexity_level=ComplexityLevel[level_name].value,
+            trajectory_writer=w,
+        )
         w.write_footer(
             episode_summary=result.episode_summary,
             metrics=result.metrics.to_dict() if result.metrics else None,

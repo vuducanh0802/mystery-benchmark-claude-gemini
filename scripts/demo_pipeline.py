@@ -136,8 +136,10 @@ def main() -> None:
             seed = 2000 * level + i
             ws = generate_mystery(config, seed)
 
-            agent = HeuristicAgent()
-            result = run_episode(agent, ws, complexity_level=level, verbose=False)
+            detective_agent = HeuristicAgent()
+            result = run_episode(
+                detective_agent, ws, complexity_level=level, verbose=False,
+            )
 
             if result.metrics:
                 level_metrics.append(result.metrics)

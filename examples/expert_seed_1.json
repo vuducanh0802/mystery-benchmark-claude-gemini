@@ -2,6 +2,8 @@
   "id": "expert_seed_1",
   "complexity": "EXPERT",
   "seed": 1,
+  "state_seed": 2,
+  "generation_attempt": 1,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Thea Blackwood",
@@ -55,13 +57,12 @@
       "ev_148040"
     ],
     "wv_evidence": [
-      "ev_236162",
-      "ev_950112",
-      "ev_628791"
+      "ev_628791",
+      "ev_236162"
     ],
     "sr_evidence": [
-      "ev_945797",
-      "ev_671258"
+      "ev_671258",
+      "ev_945797"
     ],
     "alibi_type": "B",
     "alibi_contradiction": {
@@ -75,153 +76,231 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Attic Storage"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wooden stool"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "coat rack"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Grand Foyer"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Library Annex"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "umbrella stand"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
-      "action": "EXAMINE_OBJECT",
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
       "kwargs": {
-        "object_name": "side table"
-      }
+        "target_location": "Grand Foyer"
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      },
+      "success": true
+    },
+    {
+      "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Thea Blackwood",
         "question": "Where were you at the time of the murder?"
-      }
-    },
-    {
-      "step": 10,
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Rose Garden"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Courtyard Terrace"
-      }
+        "target_location": "Rose Garden"
+      },
+      "success": true
     },
     {
       "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Attic Storage"
-      }
+        "target_location": "Courtyard Terrace"
+      },
+      "success": true
     },
     {
       "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Music Salon"
-      }
+        "target_location": "Attic Storage"
+      },
+      "success": true
     },
     {
       "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Music Salon"
+      },
+      "success": true
+    },
+    {
+      "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Adrian Greystone",
         "question": "Where were you at the time of the murder?"
-      }
-    },
-    {
-      "step": 15,
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Attic Storage"
-      }
+      },
+      "success": true
     },
     {
       "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Clock Tower"
-      }
+        "target_location": "Attic Storage"
+      },
+      "success": true
     },
     {
       "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      },
+      "success": true
+    },
+    {
+      "step": 18,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Linnea Sterling",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 18,
+      "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      },
+      "success": true
+    },
+    {
+      "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Maxfield Iverson",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 19,
+      "step": 21,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Dahlia Lark",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 20,
+      "step": 22,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Thea Blackwood",
         "weapon_name": "brass candlestick",
         "location_name": "Attic Storage",
         "weapon_victim_evidence": [
-          "ev_236162",
-          "ev_950112",
-          "ev_628791"
+          "ev_628791",
+          "ev_236162"
         ],
         "suspect_room_evidence": [
           "ev_945797"
@@ -259,16 +338,17 @@
             "corroborator": "Adrian Greystone"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {
-    "composite": 0.6944,
-    "triangle": 1.6667,
+    "composite": 0.6711,
+    "triangle": 1.4667,
     "alibi": 1.0,
     "elimination": 0.0,
     "sw": 0.0,
-    "wv": 1.0,
+    "wv": 0.8,
     "sr": 0.6667
   }
 }

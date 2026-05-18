@@ -2,6 +2,8 @@
   "id": "easy_seed_0",
   "complexity": "EASY",
   "seed": 0,
+  "state_seed": 0,
+  "generation_attempt": 0,
   "multi_evidence": true,
   "ground_truth": {
     "culprit": "Silas Prescott",
@@ -49,121 +51,151 @@
   "oracle_action_sequence": [
     {
       "step": 1,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "porcelain vase"
-      }
+      },
+      "success": true
     },
     {
       "step": 2,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 3,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "gardening shears"
-      }
+      },
+      "success": true
     },
     {
       "step": 4,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "old radiator"
-      }
+      },
+      "success": true
     },
     {
       "step": 5,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 6,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Observatory Deck"
-      }
+      },
+      "success": true
     },
     {
       "step": 7,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "storage trunk"
-      }
+      },
+      "success": true
     },
     {
       "step": 8,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Clock Tower"
-      }
+      },
+      "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Greenhouse"
-      }
+      },
+      "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
         "object_name": "wooden stool"
-      }
+      },
+      "success": true
     },
     {
       "step": 11,
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Wine Pantry"
-      }
-    },
-    {
-      "step": 12,
-      "action": "EXAMINE_OBJECT",
-      "kwargs": {
-        "object_name": "wicker basket"
-      }
-    },
-    {
-      "step": 13,
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Clock Tower"
-      }
-    },
-    {
-      "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Silas Prescott",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 15,
+      "step": 12,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      },
+      "success": true
+    },
+    {
+      "step": 13,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Petra Montague",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 16,
+      "step": 14,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Emory Sterling",
         "question": "Where were you at the time of the murder?"
-      }
+      },
+      "success": true
     },
     {
-      "step": 17,
+      "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "ACCUSE",
       "kwargs": {
         "suspect_name": "Silas Prescott",
@@ -196,14 +228,15 @@
             "corroborator": "Emory Sterling"
           }
         }
-      }
+      },
+      "success": true
     }
   ],
   "oracle_scores": {
-    "composite": 1.0,
+    "composite": 0.925,
     "triangle": 3.0,
     "alibi": 1.0,
-    "elimination": 1.0,
+    "elimination": 0.5,
     "sw": 1.0,
     "wv": 1.0,
     "sr": 1.0
