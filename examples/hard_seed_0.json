@@ -140,9 +140,9 @@
       "step": 8,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Chapel Nook"
+        "object_name": "wicker basket"
       },
       "success": true
     },
@@ -152,12 +152,22 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Rose Garden"
+        "target_location": "Chapel Nook"
       },
       "success": true
     },
     {
       "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Rose Garden"
+      },
+      "success": true
+    },
+    {
+      "step": 11,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -168,7 +178,7 @@
       "success": true
     },
     {
-      "step": 11,
+      "step": 12,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -178,27 +188,7 @@
       "success": true
     },
     {
-      "step": 12,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Grand Foyer"
-      },
-      "success": true
-    },
-    {
       "step": 13,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Clock Tower"
-      },
-      "success": true
-    },
-    {
-      "step": 14,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -209,27 +199,7 @@
       "success": true
     },
     {
-      "step": 15,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Grand Foyer"
-      },
-      "success": true
-    },
-    {
-      "step": 16,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Library Annex"
-      },
-      "success": true
-    },
-    {
-      "step": 17,
+      "step": 14,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -239,7 +209,27 @@
       "success": true
     },
     {
-      "step": 18,
+      "step": 15,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Library Annex"
+      },
+      "success": true
+    },
+    {
+      "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Grand Foyer"
+      },
+      "success": true
+    },
+    {
+      "step": 17,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -250,7 +240,7 @@
       "success": true
     },
     {
-      "step": 19,
+      "step": 18,
       "actor_id": "detective",
       "role": "detective",
       "action": "ACCUSE",
@@ -260,6 +250,9 @@
         "location_name": "Grand Foyer",
         "suspect_weapon_evidence": [
           "ev_236488"
+        ],
+        "weapon_victim_evidence": [
+          "ev_655955"
         ],
         "suspect_room_evidence": [
           "ev_896068"
@@ -294,12 +287,12 @@
     }
   ],
   "oracle_scores": {
-    "composite": 0.6133,
-    "triangle": 1.4,
+    "composite": 0.6911,
+    "triangle": 2.0667,
     "alibi": 0.6667,
     "elimination": 0.0,
     "sw": 0.4,
-    "wv": 0.0,
+    "wv": 0.6667,
     "sr": 1.0
   }
 }

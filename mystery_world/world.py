@@ -8,6 +8,7 @@ and accepts *actions*.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from dataclasses import dataclass, field, replace
@@ -75,6 +76,20 @@ class ActionResult:
 
 
 DETECTIVE_ACTOR_ID = "detective"
+
+
+def _first_nonempty(*values: Any) -> str:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _normalized_name(value: Any) -> str:
+    return " ".join(str(value).strip().lower().split())
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +240,8 @@ class MysteryEnvironment:
         self._active_actor_id: str = DETECTIVE_ACTOR_ID
         self._actor_actions_taken: dict[str, int] = {}
         self._actor_discovered_evidence: dict[str, set[str]] = {}
+        self._solvability_guard_blocked_actions: int = 0
+        self._solvability_guard_suppressed_events: int = 0
 
         # Place agent at a default starting location
         if world_state.locations:
@@ -257,6 +274,113 @@ class MysteryEnvironment:
     def set_npc_responder(self, responder: NPCResponder) -> None:
         """Attach an NPC responder for LLM-powered stateful interviews."""
         self._npc_responder = responder
+
+    def _restore_state_in_place(self, snapshot: WorldState) -> None:
+        """Restore WorldState without replacing the object shared by callers."""
+        self._state.__dict__.clear()
+        self._state.__dict__.update(copy.deepcopy(snapshot.__dict__))
+
+    def _snapshot_runtime(self) -> dict[str, Any]:
+        return {
+            "state": copy.deepcopy(self._state),
+            "agent_location_id": self.agent_location_id,
+            "agent_inventory": list(self.agent_inventory),
+            "actions_taken": self.actions_taken,
+            "action_history": copy.deepcopy(self.action_history),
+            "is_solved": self.is_solved,
+            "accusation_correct": self.accusation_correct,
+            "discovered_evidence": set(self._discovered_evidence),
+            "interviewed_characters": set(self._interviewed_characters),
+            "last_score_result": copy.deepcopy(self._last_score_result),
+            "interview_histories": copy.deepcopy(self._interview_histories),
+            "examine_total": self._examine_total,
+            "examine_hit": self._examine_hit,
+            "examine_present": self._examine_present,
+            "perception_misses": copy.deepcopy(self._perception_misses),
+            "revealed_alibi_claims": copy.deepcopy(self._revealed_alibi_claims),
+            "active_actor_id": self._active_actor_id,
+            "actor_actions_taken": dict(self._actor_actions_taken),
+            "actor_discovered_evidence": {
+                actor_id: set(eids)
+                for actor_id, eids in self._actor_discovered_evidence.items()
+            },
+            "solvability_guard_blocked_actions": self._solvability_guard_blocked_actions,
+            "solvability_guard_suppressed_events": self._solvability_guard_suppressed_events,
+        }
+
+    def _restore_runtime(self, snapshot: dict[str, Any]) -> None:
+        self._restore_state_in_place(snapshot["state"])
+        self.agent_location_id = snapshot["agent_location_id"]
+        self.agent_inventory = snapshot["agent_inventory"]
+        self.actions_taken = snapshot["actions_taken"]
+        self.action_history = snapshot["action_history"]
+        self.is_solved = snapshot["is_solved"]
+        self.accusation_correct = snapshot["accusation_correct"]
+        self._discovered_evidence = snapshot["discovered_evidence"]
+        self._interviewed_characters = snapshot["interviewed_characters"]
+        self._last_score_result = snapshot["last_score_result"]
+        self._interview_histories = snapshot["interview_histories"]
+        self._examine_total = snapshot["examine_total"]
+        self._examine_hit = snapshot["examine_hit"]
+        self._examine_present = snapshot["examine_present"]
+        self._perception_misses = snapshot["perception_misses"]
+        self._revealed_alibi_claims = snapshot["revealed_alibi_claims"]
+        self._active_actor_id = snapshot["active_actor_id"]
+        self._actor_actions_taken = snapshot["actor_actions_taken"]
+        self._actor_discovered_evidence = snapshot["actor_discovered_evidence"]
+        self._solvability_guard_blocked_actions = snapshot["solvability_guard_blocked_actions"]
+        self._solvability_guard_suppressed_events = snapshot["solvability_guard_suppressed_events"]
+
+    def _solvability_report(self) -> dict[str, Any]:
+        if self.is_solved:
+            return {"solvable": True}
+        murder_ts = self._state.murder_timestamp
+        threshold = self._state.freshness_threshold
+
+        def _has_accessible_host(evidence_id: str) -> bool:
+            for obj in self._state.objects.values():
+                if obj.evidence_id != evidence_id:
+                    continue
+                return obj.location_id in self._state.locations
+            ev = self._state.evidence.get(evidence_id)
+            return bool(ev and ev.location_id in self._state.locations)
+
+        def _edge_candidates(edge_type: EdgeType) -> list[str]:
+            candidates = []
+            for ev in self._state.evidence.values():
+                if ev.is_red_herring or ev.relevance is None:
+                    continue
+                if ev.relevance.edge_type != edge_type:
+                    continue
+                if not _relevance_matches_truth(ev.relevance, edge_type, self._state):
+                    continue
+                if abs(ev.relevance.contact_timestamp - murder_ts) >= threshold:
+                    continue
+                if ev.id in self._discovered_evidence:
+                    candidates.append(ev.id)
+                    continue
+                if ev.state in (EvidenceState.HIDDEN, EvidenceState.DESTROYED):
+                    continue
+                if ev.discovery_difficulty >= 1.0:
+                    continue
+                if not _has_accessible_host(ev.id):
+                    continue
+                candidates.append(ev.id)
+            return candidates
+
+        edges = {
+            edge_type.name: _edge_candidates(edge_type)
+            for edge_type in (
+                EdgeType.SUSPECT_WEAPON,
+                EdgeType.WEAPON_VICTIM,
+                EdgeType.SUSPECT_ROOM,
+            )
+        }
+        solvable = all(edges[name] for name in edges)
+        return {
+            "solvable": solvable,
+            "available_triangle_evidence": edges,
+        }
     
     # ------------------------------------------------------------------
     # Observation helpers
@@ -306,6 +430,8 @@ class MysteryEnvironment:
         actor_id = actor_id or self._active_actor_id
         return self._state.locations.get(self._actor_location_id(actor_id))
 
+    def _is_body_object(self, obj: WorldObject) -> bool:
+        return _normalized_name(obj.name).startswith("body of ")
 
     def observe_location(self, actor_id: str | None = None) -> str:
         """Return a natural-language description of the current location."""
@@ -349,7 +475,7 @@ class MysteryEnvironment:
         for obj in visible_objs:
             if obj.evidence_id:
                 ev = self._state.evidence.get(obj.evidence_id)
-                if ev and ev.state == EvidenceState.HIDDEN:
+                if ev and ev.state == EvidenceState.HIDDEN and not self._is_body_object(obj):
                     continue
             visible.append(obj)
         
@@ -364,6 +490,16 @@ class MysteryEnvironment:
         ]
         if adj_names:
             parts.append(f"Exit leads to {', '.join(adj_names)}.")
+        talk_targets = [c.full_name for c in chars_here]
+        examine_targets = [o.name for o in visible]
+        take_targets = [o.name for o in visible if o.portable]
+        target_lines = [
+            f"MOVE: {', '.join(adj_names) if adj_names else 'none'}",
+            f"TALK_TO: {', '.join(talk_targets) if talk_targets else 'none'}",
+            f"EXAMINE_OBJECT: {', '.join(examine_targets) if examine_targets else 'none'}",
+            f"TAKE_OBJECT: {', '.join(take_targets) if take_targets else 'none'}",
+        ]
+        parts.append("Available targets: " + " | ".join(target_lines) + ".")
         # Weather (outdoor only)
         if loc.weather_exposed:
             parts.append(f"The weather is {self._state.weather.replace('_', ' ')}.")
@@ -399,12 +535,24 @@ class MysteryEnvironment:
         if self.budget_remaining_for(actor_id) <= 0 and not is_detective:
             return ActionResult(False, f"{self._actor_display_name(actor_id)} has exhausted their action budget.")
         
+        before_action = self._snapshot_runtime()
         prev_actor = self._active_actor_id
         self._active_actor_id = actor_id
         try:
             result = self._dispatch_action(action, **kwargs)
         finally:
             self._active_actor_id = prev_actor
+
+        if result.success and action != AgentAction.ACCUSE:
+            solvability = self._solvability_report()
+            if not solvability.get("solvable", False):
+                self._restore_runtime(before_action)
+                self._solvability_guard_blocked_actions += 1
+                return ActionResult(
+                    False,
+                    "That action is blocked because it would make the case unsolvable.",
+                    details={"solvability": solvability},
+                )
 
         # Record
         if is_detective:
@@ -423,9 +571,16 @@ class MysteryEnvironment:
 
         # Advance world simulation (dynamic events)
         if advance_world:
+            before_events = copy.deepcopy(self._state)
+            before_step = self._state.current_step
             self._state.current_step += 1
             new_events = process_all_events(self._state, self._rng)
             self._state.event_log.extend(new_events)
+            solvability = self._solvability_report()
+            if not solvability.get("solvable", False):
+                self._restore_state_in_place(before_events)
+                self._state.current_step = before_step + 1
+                self._solvability_guard_suppressed_events += len(new_events)
 
         return result
 
@@ -476,10 +631,23 @@ class MysteryEnvironment:
 
 
     def _handle_travel_time(
-        self, from_room: str = "", to_room: str = "", at_time: str = "", **_: Any
+        self, from_room: str = "", to_room: str = "", at_time: str = "", **kwargs: Any
     ) -> ActionResult:
         """Minimum steps between two rooms, respecting route constraints active at_time.
         If at_time omitted, returns unconstrained minimum. Costs 1 action."""
+        from_room = _first_nonempty(
+            from_room,
+            kwargs.get("from_location"),
+            kwargs.get("from"),
+            kwargs.get("source"),
+        )
+        to_room = _first_nonempty(
+            to_room,
+            kwargs.get("to_location"),
+            kwargs.get("to"),
+            kwargs.get("target"),
+        )
+        at_time = _first_nonempty(at_time, kwargs.get("time"))
         from_loc = next(
             (l for l in self._state.locations.values() if l.name.lower() == from_room.lower()),
             None,
@@ -520,10 +688,23 @@ class MysteryEnvironment:
         )
 
     def _handle_check_route(
-        self, from_room: str = "", to_room: str = "", at_time: str = "", **_: Any
+        self, from_room: str = "", to_room: str = "", at_time: str = "", **kwargs: Any
     ) -> ActionResult:
         """Was the direct passage between two rooms open at a given clock time?
         at_time format: '9:30 PM'. Costs 1 action."""
+        from_room = _first_nonempty(
+            from_room,
+            kwargs.get("from_location"),
+            kwargs.get("from"),
+            kwargs.get("source"),
+        )
+        to_room = _first_nonempty(
+            to_room,
+            kwargs.get("to_location"),
+            kwargs.get("to"),
+            kwargs.get("target"),
+        )
+        at_time = _first_nonempty(at_time, kwargs.get("time"))
         from_loc = next(
             (l for l in self._state.locations.values() if l.name.lower() == from_room.lower()),
             None,
@@ -562,8 +743,15 @@ class MysteryEnvironment:
     def _handle_move(
         self,
         target_location: str = "",
-        **_: Any
+        **kwargs: Any
     ) -> ActionResult:
+        target_location = _first_nonempty(
+            target_location,
+            kwargs.get("name"),
+            kwargs.get("target"),
+            kwargs.get("to_location"),
+            kwargs.get("location"),
+        )
         actor_id = self._active_actor_id
         loc = self.get_current_location(actor_id)
         if loc is None:
@@ -587,16 +775,39 @@ class MysteryEnvironment:
         return ActionResult(True, obs)
 
 
+    def _object_matches_query(self, obj: WorldObject, query: str) -> bool:
+        query_norm = _normalized_name(query)
+        if not query_norm:
+            return False
+        names = [obj.id, obj.name]
+        if self._is_body_object(obj):
+            victim = self._state.get_victim()
+            names.extend(["body", "the body", "victim", "the victim"])
+            if victim is not None:
+                names.extend([
+                    victim.full_name,
+                    f"{victim.full_name}'s body",
+                    f"body of {victim.full_name}",
+                    f"the body of {victim.full_name}",
+                ])
+        return query_norm in {_normalized_name(name) for name in names}
+
     def _handle_examine_object(
-        self, object_name: str = "", thorough: bool = False, **_: Any
+        self, object_name: str = "", thorough: bool = False, **kwargs: Any
     ) -> ActionResult:
+        object_name = _first_nonempty(
+            object_name,
+            kwargs.get("name"),
+            kwargs.get("object"),
+            kwargs.get("target_name"),
+        )
         actor_id = self._active_actor_id
         loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "No current location.")
         for oid in loc.objects_here:
             obj = self._state.objects.get(oid)
-            if obj and obj.name.lower() == object_name.lower():
+            if obj and self._object_matches_query(obj, object_name):
                 if actor_id == DETECTIVE_ACTOR_ID:
                     self._examine_total += 1
                 base_obs = f"You examine the {obj.name}. {obj.description}"
@@ -660,7 +871,13 @@ class MysteryEnvironment:
         return ActionResult(False, f"No object called '{object_name}' here.")
 
     
-    def _handle_talk(self, character_name: str = "", question: str = "", **_: Any) -> ActionResult:
+    def _handle_talk(self, character_name: str = "", question: str = "", **kwargs: Any) -> ActionResult:
+        character_name = _first_nonempty(
+            character_name,
+            kwargs.get("name"),
+            kwargs.get("target_name"),
+            kwargs.get("character"),
+        )
         actor_id = self._active_actor_id
         loc = self.get_current_location(actor_id)
         if loc is None:
@@ -771,9 +988,41 @@ class MysteryEnvironment:
         suspect_room_evidence: list[str] | None = None,
         alibi_contradiction: dict[str, Any] | None = None,
         eliminations: dict[str, dict[str, str]] | None = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> ActionResult:
         """Final accusation. Ends the episode."""
+        suspect_name = _first_nonempty(
+            suspect_name,
+            kwargs.get("suspect"),
+            kwargs.get("culprit"),
+            kwargs.get("character_name"),
+            kwargs.get("accused"),
+        )
+        weapon_name = _first_nonempty(
+            weapon_name,
+            kwargs.get("weapon"),
+            kwargs.get("murder_weapon"),
+            kwargs.get("object_name"),
+        )
+        location_name = _first_nonempty(
+            location_name,
+            kwargs.get("location"),
+            kwargs.get("room"),
+            kwargs.get("murder_location"),
+            kwargs.get("location_id"),
+        )
+        suspect_weapon_evidence = (
+            suspect_weapon_evidence if isinstance(suspect_weapon_evidence, list) else []
+        )
+        weapon_victim_evidence = (
+            weapon_victim_evidence if isinstance(weapon_victim_evidence, list) else []
+        )
+        suspect_room_evidence = (
+            suspect_room_evidence if isinstance(suspect_room_evidence, list) else []
+        )
+        alibi_contradiction = alibi_contradiction if isinstance(alibi_contradiction, dict) else {}
+        eliminations = eliminations if isinstance(eliminations, dict) else {}
+
         self.is_solved = True
         culprit = self._state.get_culprit()
         weapon = self._state.objects.get(self._state.murder_weapon_id)
@@ -841,6 +1090,9 @@ class MysteryEnvironment:
     def _resolve_names_to_ids(
         self, suspect_name: str, weapon_name: str, location_name: str
     ) -> dict[str, str]:
+        suspect_name = _first_nonempty(suspect_name)
+        weapon_name = _first_nonempty(weapon_name)
+        location_name = _first_nonempty(location_name)
         result = {"suspect": "", "weapon": "", "room": ""}
         for cid, c in self._state.characters.items():
             if c.full_name.lower() == suspect_name.lower():
@@ -884,14 +1136,20 @@ class MysteryEnvironment:
         return ActionResult(True, "\n".join(parts))
 
 
-    def _handle_take(self, object_name: str = "", **_: Any) -> ActionResult:
+    def _handle_take(self, object_name: str = "", **kwargs: Any) -> ActionResult:
+        object_name = _first_nonempty(
+            object_name,
+            kwargs.get("name"),
+            kwargs.get("object"),
+            kwargs.get("target_name"),
+        )
         actor_id = self._active_actor_id
         loc = self.get_current_location(actor_id)
         if loc is None:
             return ActionResult(False, "No current location.")
         for oid in loc.objects_here:
             obj = self._state.objects.get(oid)
-            if obj and obj.name.lower() == object_name.lower():
+            if obj and self._object_matches_query(obj, object_name):
                 if not obj.portable:
                     return ActionResult(False, f"The {obj.name} cannot be taken.")
                 loc.objects_here.remove(oid)
@@ -929,6 +1187,8 @@ class MysteryEnvironment:
             "action_history": self.action_history,
             "actor_actions_taken": dict(self._actor_actions_taken),
             "free_culprit_actions": self._state.config.free_culprit_actions,
+            "solvability_guard_blocked_actions": self._solvability_guard_blocked_actions,
+            "solvability_guard_suppressed_events": self._solvability_guard_suppressed_events,
             "score_result": self._last_score_result,
         }
 
@@ -973,6 +1233,8 @@ class MysteryEnvironment:
                 actor_id: sorted(eids)
                 for actor_id, eids in self._actor_discovered_evidence.items()
             },
+            "solvability_guard_blocked_actions": self._solvability_guard_blocked_actions,
+            "solvability_guard_suppressed_events": self._solvability_guard_suppressed_events,
         }
         (directory / "session.json").write_text(json.dumps(session, indent=2))
         return directory
@@ -1004,6 +1266,8 @@ class MysteryEnvironment:
             actor_id: set(eids)
             for actor_id, eids in session.get("actor_discovered_evidence", {}).items()
         }
+        self._solvability_guard_blocked_actions = session.get("solvability_guard_blocked_actions", 0)
+        self._solvability_guard_suppressed_events = session.get("solvability_guard_suppressed_events", 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1093,8 +1357,8 @@ def score_accusation(
 
     # --- Score 3: Alibi verification (provenance + evidence_id contradiction) ---
     if alibi_contradiction and revealed_alibi_claims:
-        cited_loc = alibi_contradiction.get("claimed_location", "").lower()
-        cited_time = alibi_contradiction.get("claimed_time", "").lower()
+        cited_loc = _first_nonempty(alibi_contradiction.get("claimed_location")).lower()
+        cited_time = _first_nonempty(alibi_contradiction.get("claimed_time")).lower()
         cited_ev_ids = alibi_contradiction.get("contradiction_evidence", []) or []
         if not isinstance(cited_ev_ids, list):
             cited_ev_ids = []
@@ -1166,6 +1430,7 @@ def score_accusation(
         interviewed = interviewed_characters or set()
 
         for suspect_name, claim in eliminations.items():
+            suspect_name = _first_nonempty(suspect_name)
             char = next(
                 (c for c in state.characters.values()
                  if c.full_name.lower() == suspect_name.lower()),

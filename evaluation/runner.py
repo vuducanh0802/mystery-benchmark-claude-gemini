@@ -12,7 +12,7 @@ import structlog
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agents.base_agent import BaseAgent
 from evaluation.metrics import EpisodeMetrics, compute_episode_metrics
@@ -66,6 +66,7 @@ def run_episode(
     trajectory_writer: TrajectoryWriter | None = None,
     *,
     agent: BaseAgent | None = None,
+    step_callback: Callable[[dict[str, Any]], None] | None = None,
 ):
     """
     Run a detective-vs-environment episode.
@@ -98,6 +99,14 @@ def run_episode(
         complexity_level=complexity_level,
     )
     t0 = time.time()
+
+    def _notify_step(payload: dict[str, Any]) -> None:
+        if step_callback is None:
+            return
+        try:
+            step_callback(payload)
+        except Exception:
+            logger.exception("Step progress callback failed")
 
     try:
         env = MysteryEnvironment(world_state)
@@ -181,6 +190,13 @@ def run_episode(
                     success=action_result.success,
                     post_state_hash=world_state_hash(world_state),
                 )
+            _notify_step({
+                "step": step_idx,
+                "actor_id": "detective",
+                "role": "detective",
+                "action": action.name,
+                "success": action_result.success,
+            })
 
             if culprit_agent is not None and not env.is_solved:
                 culprit_id = world_state.culprit_id
@@ -222,6 +238,13 @@ def run_episode(
                         success=culprit_result.success,
                         post_state_hash=world_state_hash(world_state),
                     )
+                _notify_step({
+                    "step": step_idx,
+                    "actor_id": culprit_id,
+                    "role": "culprit",
+                    "action": culprit_action.name,
+                    "success": culprit_result.success,
+                })
         
         # Compute metrics
         episode_summary = env.get_episode_summary()

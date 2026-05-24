@@ -1304,11 +1304,17 @@ def generate_mystery(
             if loc and cid not in loc.characters_here:
                 loc.characters_here.append(cid)
 
+        body_obj_ids = [body_obj_id]
         evidence_obj_ids = [oid for oid, o in objects.items() if o.evidence_id]
-        decoy_obj_ids = [oid for oid, o in objects.items() if not o.evidence_id]
+        required_obj_ids = list(dict.fromkeys(evidence_obj_ids + body_obj_ids))
+        decoy_obj_ids = [
+            oid for oid, o in objects.items()
+            if not o.evidence_id and oid not in body_obj_ids
+        ]
 
-        # Evidence-bearing objects are always placed (they're required for scoring)
-        for oid in evidence_obj_ids:
+        # Evidence-bearing objects and the body are always placed. The body is
+        # an explicit, inspectable scene object even when it holds no evidence.
+        for oid in required_obj_ids:
             loc = locations.get(objects[oid].location_id)
             if loc and oid not in loc.objects_here:
                 loc.objects_here.append(oid)

@@ -56,7 +56,9 @@
     "alibi_contradiction": {
       "claimed_location": "Music Salon",
       "claimed_time": "9:00 PM",
-      "contradiction_evidence": []
+      "contradiction_evidence": [
+        "ev_477495"
+      ]
     }
   },
   "oracle_action_sequence": [
@@ -84,9 +86,9 @@
       "step": 3,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Wine Pantry"
+        "object_name": "fireplace mantel"
       },
       "success": true
     },
@@ -96,7 +98,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Cellar Vault"
+        "target_location": "Wine Pantry"
       },
       "success": true
     },
@@ -106,7 +108,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Clock Tower"
+        "target_location": "Cellar Vault"
       },
       "success": true
     },
@@ -114,9 +116,9 @@
       "step": 6,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Grand Foyer"
+        "object_name": "wooden stool"
       },
       "success": true
     },
@@ -124,9 +126,9 @@
       "step": 7,
       "actor_id": "detective",
       "role": "detective",
-      "action": "EXAMINE_OBJECT",
+      "action": "MOVE",
       "kwargs": {
-        "object_name": "window ledge"
+        "target_location": "Clock Tower"
       },
       "success": true
     },
@@ -136,12 +138,32 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Clock Tower"
+        "target_location": "Grand Foyer"
       },
       "success": true
     },
     {
       "step": 9,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "window ledge"
+      },
+      "success": true
+    },
+    {
+      "step": 10,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      },
+      "success": true
+    },
+    {
+      "step": 11,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -151,7 +173,7 @@
       "success": true
     },
     {
-      "step": 10,
+      "step": 12,
       "actor_id": "detective",
       "role": "detective",
       "action": "EXAMINE_OBJECT",
@@ -161,17 +183,7 @@
       "success": true
     },
     {
-      "step": 11,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "EXAMINE_OBJECT",
-      "kwargs": {
-        "object_name": "writing desk"
-      },
-      "success": true
-    },
-    {
-      "step": 12,
+      "step": 13,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -181,7 +193,7 @@
       "success": true
     },
     {
-      "step": 13,
+      "step": 14,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -191,7 +203,7 @@
       "success": true
     },
     {
-      "step": 14,
+      "step": 15,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -202,7 +214,7 @@
       "success": true
     },
     {
-      "step": 15,
+      "step": 16,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -212,7 +224,7 @@
       "success": true
     },
     {
-      "step": 16,
+      "step": 17,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -223,7 +235,7 @@
       "success": true
     },
     {
-      "step": 17,
+      "step": 18,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -233,7 +245,17 @@
       "success": true
     },
     {
-      "step": 18,
+      "step": 19,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Servants' Quarters"
+      },
+      "success": true
+    },
+    {
+      "step": 20,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -244,37 +266,7 @@
       "success": true
     },
     {
-      "step": 19,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Clock Tower"
-      },
-      "success": true
-    },
-    {
-      "step": 20,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Cellar Vault"
-      },
-      "success": true
-    },
-    {
       "step": 21,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Wine Pantry"
-      },
-      "success": true
-    },
-    {
-      "step": 22,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -285,7 +277,7 @@
       "success": true
     },
     {
-      "step": 23,
+      "step": 22,
       "actor_id": "detective",
       "role": "detective",
       "action": "ACCUSE",
@@ -296,10 +288,18 @@
         "suspect_weapon_evidence": [
           "ev_132153"
         ],
+        "weapon_victim_evidence": [
+          "ev_599938"
+        ],
+        "suspect_room_evidence": [
+          "ev_477495"
+        ],
         "alibi_contradiction": {
           "claimed_location": "Music Salon",
           "claimed_time": "9:00 PM",
-          "contradiction_evidence": []
+          "contradiction_evidence": [
+            "ev_477495"
+          ]
         },
         "eliminations": {
           "Maxfield Prescott": {
@@ -324,12 +324,12 @@
     }
   ],
   "oracle_scores": {
-    "composite": 0.6792,
-    "triangle": 1.0,
-    "alibi": 0.6667,
-    "elimination": 0.75,
+    "composite": 0.925,
+    "triangle": 3.0,
+    "alibi": 1.0,
+    "elimination": 0.5,
     "sw": 1.0,
-    "wv": 0.0,
-    "sr": 0.0
+    "wv": 1.0,
+    "sr": 1.0
   }
 }

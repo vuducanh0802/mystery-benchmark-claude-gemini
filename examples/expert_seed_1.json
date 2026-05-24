@@ -140,7 +140,7 @@
       "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "object_name": "umbrella stand"
+        "object_name": "brass candlestick"
       },
       "success": true
     },
@@ -150,7 +150,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Grand Foyer"
+        "target_location": "Rose Garden"
       },
       "success": true
     },
@@ -160,7 +160,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Library Annex"
+        "target_location": "Courtyard Terrace"
       },
       "success": true
     },
@@ -168,10 +168,9 @@
       "step": 10,
       "actor_id": "detective",
       "role": "detective",
-      "action": "TALK_TO",
+      "action": "MOVE",
       "kwargs": {
-        "character_name": "Thea Blackwood",
-        "question": "Where were you at the time of the murder?"
+        "target_location": "Attic Storage"
       },
       "success": true
     },
@@ -181,7 +180,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Rose Garden"
+        "target_location": "Music Salon"
       },
       "success": true
     },
@@ -189,9 +188,9 @@
       "step": 12,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Courtyard Terrace"
+        "object_name": "footstool"
       },
       "success": true
     },
@@ -211,7 +210,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Music Salon"
+        "target_location": "Clock Tower"
       },
       "success": true
     },
@@ -219,10 +218,9 @@
       "step": 15,
       "actor_id": "detective",
       "role": "detective",
-      "action": "TALK_TO",
+      "action": "MOVE",
       "kwargs": {
-        "character_name": "Adrian Greystone",
-        "question": "Where were you at the time of the murder?"
+        "target_location": "Grand Foyer"
       },
       "success": true
     },
@@ -230,9 +228,10 @@
       "step": 16,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "TALK_TO",
       "kwargs": {
-        "target_location": "Attic Storage"
+        "character_name": "Thea Blackwood",
+        "question": "Where were you at the time of the murder?"
       },
       "success": true
     },
@@ -250,10 +249,9 @@
       "step": 18,
       "actor_id": "detective",
       "role": "detective",
-      "action": "TALK_TO",
+      "action": "MOVE",
       "kwargs": {
-        "character_name": "Linnea Sterling",
-        "question": "Where were you at the time of the murder?"
+        "target_location": "Attic Storage"
       },
       "success": true
     },
@@ -263,12 +261,94 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Grand Foyer"
+        "target_location": "Music Salon"
       },
       "success": true
     },
     {
       "step": 20,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Dimly-Lit Study"
+      },
+      "success": true
+    },
+    {
+      "step": 21,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Adrian Greystone",
+        "question": "Where were you at the time of the murder?"
+      },
+      "success": true
+    },
+    {
+      "step": 22,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      },
+      "success": true
+    },
+    {
+      "step": 23,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      },
+      "success": true
+    },
+    {
+      "step": 24,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Clock Tower"
+      },
+      "success": true
+    },
+    {
+      "step": 25,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Linnea Sterling",
+        "question": "Where were you at the time of the murder?"
+      },
+      "success": true
+    },
+    {
+      "step": 26,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      },
+      "success": true
+    },
+    {
+      "step": 27,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Greenhouse"
+      },
+      "success": true
+    },
+    {
+      "step": 28,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -279,7 +359,17 @@
       "success": true
     },
     {
-      "step": 21,
+      "step": 29,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Boat House"
+      },
+      "success": true
+    },
+    {
+      "step": 30,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -290,7 +380,7 @@
       "success": true
     },
     {
-      "step": 22,
+      "step": 31,
       "actor_id": "detective",
       "role": "detective",
       "action": "ACCUSE",
@@ -298,9 +388,11 @@
         "suspect_name": "Thea Blackwood",
         "weapon_name": "brass candlestick",
         "location_name": "Attic Storage",
+        "suspect_weapon_evidence": [
+          "ev_148040"
+        ],
         "weapon_victim_evidence": [
-          "ev_628791",
-          "ev_236162"
+          "ev_628791"
         ],
         "suspect_room_evidence": [
           "ev_945797"
@@ -343,12 +435,12 @@
     }
   ],
   "oracle_scores": {
-    "composite": 0.6711,
-    "triangle": 1.4667,
+    "composite": 0.7778,
+    "triangle": 2.1667,
     "alibi": 1.0,
-    "elimination": 0.0,
-    "sw": 0.0,
-    "wv": 0.8,
+    "elimination": 0.1667,
+    "sw": 1.0,
+    "wv": 0.5,
     "sr": 0.6667
   }
 }

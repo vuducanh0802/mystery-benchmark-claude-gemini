@@ -62,6 +62,34 @@ _PROVIDER_KEY_ENV: dict[str, str] = {
 }
 
 
+def _content_to_text(content: Any) -> str:
+    """Normalize SDK/gateway message content into plain text."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            part
+            for part in (_content_to_text(item) for item in content)
+            if part
+        )
+    if isinstance(content, dict):
+        for key in ("text", "content", "output_text", "input_text"):
+            value = content.get(key)
+            if value is not None:
+                return _content_to_text(value)
+        import json
+        return json.dumps(content, default=str)
+    text = getattr(content, "text", None)
+    if text is not None:
+        return _content_to_text(text)
+    value = getattr(content, "content", None)
+    if value is not None:
+        return _content_to_text(value)
+    return str(content)
+
+
 class LLMUnavailable(RuntimeError):
     """Raised when no usable LLM client can be constructed (missing SDK / key).
 
@@ -337,7 +365,7 @@ class BaseAgent:
                 system=system,
                 messages=msg_list,
             )
-            text = resp.content[0].text
+            text = _content_to_text(resp.content)
             tokens = resp.usage.input_tokens + resp.usage.output_tokens
             return text, tokens
 
@@ -355,7 +383,7 @@ class BaseAgent:
         if body:
             call_kwargs["extra_body"] = body
         resp = self._client.chat.completions.create(**call_kwargs)
-        text = resp.choices[0].message.content or ""
+        text = _content_to_text(resp.choices[0].message.content)
         tokens = resp.usage.total_tokens if resp.usage else 0
         return text, tokens
 

@@ -129,7 +129,7 @@
       "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "object_name": "heavy curtain"
+        "object_name": "coil of rope"
       },
       "success": true
     },
@@ -137,9 +137,9 @@
       "step": 7,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Clock Tower"
+        "object_name": "heavy curtain"
       },
       "success": true
     },
@@ -149,7 +149,7 @@
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
-        "target_location": "Grand Foyer"
+        "target_location": "Clock Tower"
       },
       "success": true
     },
@@ -157,9 +157,9 @@
       "step": 9,
       "actor_id": "detective",
       "role": "detective",
-      "action": "EXAMINE_OBJECT",
+      "action": "MOVE",
       "kwargs": {
-        "object_name": "porcelain vase"
+        "target_location": "Grand Foyer"
       },
       "success": true
     },
@@ -169,7 +169,7 @@
       "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "object_name": "footstool"
+        "object_name": "worn rug"
       },
       "success": true
     },
@@ -177,9 +177,9 @@
       "step": 11,
       "actor_id": "detective",
       "role": "detective",
-      "action": "MOVE",
+      "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "target_location": "Clock Tower"
+        "object_name": "porcelain vase"
       },
       "success": true
     },
@@ -189,7 +189,7 @@
       "role": "detective",
       "action": "EXAMINE_OBJECT",
       "kwargs": {
-        "object_name": "serving tray"
+        "object_name": "footstool"
       },
       "success": true
     },
@@ -197,9 +197,9 @@
       "step": 13,
       "actor_id": "detective",
       "role": "detective",
-      "action": "EXAMINE_OBJECT",
+      "action": "MOVE",
       "kwargs": {
-        "object_name": "hat stand"
+        "target_location": "Clock Tower"
       },
       "success": true
     },
@@ -217,6 +217,26 @@
       "step": 15,
       "actor_id": "detective",
       "role": "detective",
+      "action": "EXAMINE_OBJECT",
+      "kwargs": {
+        "object_name": "wooden stool"
+      },
+      "success": true
+    },
+    {
+      "step": 16,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      },
+      "success": true
+    },
+    {
+      "step": 17,
+      "actor_id": "detective",
+      "role": "detective",
       "action": "TALK_TO",
       "kwargs": {
         "character_name": "Petra Quinlan",
@@ -225,7 +245,7 @@
       "success": true
     },
     {
-      "step": 16,
+      "step": 18,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -236,17 +256,7 @@
       "success": true
     },
     {
-      "step": 17,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Attic Storage"
-      },
-      "success": true
-    },
-    {
-      "step": 18,
+      "step": 19,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -256,7 +266,7 @@
       "success": true
     },
     {
-      "step": 19,
+      "step": 20,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -266,7 +276,7 @@
       "success": true
     },
     {
-      "step": 20,
+      "step": 21,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -277,27 +287,7 @@
       "success": true
     },
     {
-      "step": 21,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Grand Foyer"
-      },
-      "success": true
-    },
-    {
       "step": 22,
-      "actor_id": "detective",
-      "role": "detective",
-      "action": "MOVE",
-      "kwargs": {
-        "target_location": "Clock Tower"
-      },
-      "success": true
-    },
-    {
-      "step": 23,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -307,7 +297,7 @@
       "success": true
     },
     {
-      "step": 24,
+      "step": 23,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
@@ -317,12 +307,23 @@
       "success": true
     },
     {
-      "step": 25,
+      "step": 24,
       "actor_id": "detective",
       "role": "detective",
       "action": "MOVE",
       "kwargs": {
         "target_location": "Chapel Nook"
+      },
+      "success": true
+    },
+    {
+      "step": 25,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "TALK_TO",
+      "kwargs": {
+        "character_name": "Silas Nightingale",
+        "question": "Where were you at the time of the murder?"
       },
       "success": true
     },
@@ -340,15 +341,24 @@
       "step": 27,
       "actor_id": "detective",
       "role": "detective",
-      "action": "TALK_TO",
+      "action": "MOVE",
       "kwargs": {
-        "character_name": "Silas Nightingale",
-        "question": "Where were you at the time of the murder?"
+        "target_location": "Chapel Nook"
       },
       "success": true
     },
     {
       "step": 28,
+      "actor_id": "detective",
+      "role": "detective",
+      "action": "MOVE",
+      "kwargs": {
+        "target_location": "Attic Storage"
+      },
+      "success": true
+    },
+    {
+      "step": 29,
       "actor_id": "detective",
       "role": "detective",
       "action": "TALK_TO",
@@ -359,7 +369,7 @@
       "success": true
     },
     {
-      "step": 29,
+      "step": 30,
       "actor_id": "detective",
       "role": "detective",
       "action": "ACCUSE",
@@ -367,6 +377,10 @@
         "suspect_name": "Petra Quinlan",
         "weapon_name": "coil of rope",
         "location_name": "Grand Foyer",
+        "suspect_weapon_evidence": [
+          "ev_530484",
+          "ev_752845"
+        ],
         "weapon_victim_evidence": [
           "ev_616969"
         ],
@@ -413,11 +427,11 @@
     }
   ],
   "oracle_scores": {
-    "composite": 0.76,
-    "triangle": 1.8,
+    "composite": 0.8283,
+    "triangle": 2.6,
     "alibi": 1.0,
-    "elimination": 0.3333,
-    "sw": 0.0,
+    "elimination": 0.1667,
+    "sw": 0.8,
     "wv": 1.0,
     "sr": 0.8
   }

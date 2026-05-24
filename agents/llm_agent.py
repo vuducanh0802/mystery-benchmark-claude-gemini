@@ -49,6 +49,9 @@ Actions: MOVE (target_location), EXAMINE_LOCATION, EXAMINE_OBJECT (object_name),
 TALK_TO (character_name, question), TAKE_OBJECT (object_name),
 CHECK_INVENTORY, WAIT, ACCUSE (see schema below).
 Note: TALK_TO is a stateful interview — each call asks ONE focused question. You can ask the same character multiple times.
+When the observation includes Available targets, use exact names from those lists
+for MOVE, TALK_TO, EXAMINE_OBJECT, and TAKE_OBJECT. Do not name a character or
+object that is not listed in your current location.
 
 ACCUSE action_args schema (all keys required for full credit):
 {
