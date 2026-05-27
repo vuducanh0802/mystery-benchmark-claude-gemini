@@ -969,7 +969,7 @@ class MysteryEnvironment:
             target = self._state.characters.get(rel.target_id)
             if target:
                 if rel.sentiment < -0.3:
-                    parts.append(f"They tense up when {target.full_name} is mentioned.")
+                    parts.append(f"They choose their words carefully when {target.full_name} comes up.")
                 elif rel.sentiment > 0.5:
                     parts.append(f"They speak warmly of {target.full_name}.")
         response_text = " ".join(parts[1:])

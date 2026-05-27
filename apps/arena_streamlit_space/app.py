@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import gzip
 import hashlib
 import html
@@ -529,6 +530,375 @@ def _runs_df(index: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
+    component = """
+    <section class="ma-brand" aria-label="MysteryArena introduction">
+      <div class="brand-copy">
+        <div class="brand-kicker"><span class="pulse"></span> Multi-agent mystery benchmark</div>
+        <h1>MysteryArena</h1>
+        <p>
+          We evaluate agents inside procedural murder mysteries. A detective agent searches
+          for evidence, a culprit agent tries to stay hidden, and every duel becomes a
+          scored trajectory that can be replayed, compared, and audited.
+        </p>
+      </div>
+      <div class="brand-visual" aria-hidden="true">
+        <canvas id="arenaCanvas" aria-label="Animated duel between detective, culprit, and NPC agents"></canvas>
+      </div>
+    </section>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: transparent;
+        color: #eef6f1;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .ma-brand {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+        align-items: stretch;
+        gap: 24px;
+        height: 430px;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid #20312d;
+        border-radius: 8px;
+        background-color: #101412;
+        background-image:
+          linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
+        background-size: 42px 42px;
+        box-shadow: 0 18px 46px rgba(16, 20, 18, 0.20);
+        padding: 44px;
+      }
+      .ma-brand::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 72% 58%, rgba(39, 211, 176, 0.18), transparent 32%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .brand-copy {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        max-width: 720px;
+      }
+      .brand-visual {
+        position: relative;
+        z-index: 1;
+        min-height: 280px;
+        align-self: stretch;
+      }
+      #arenaCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+      .brand-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: #9fd0c1;
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0;
+        margin-bottom: 16px;
+      }
+      .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #27d3b0;
+        box-shadow: 0 0 0 0 rgba(39, 211, 176, 0.50);
+        animation: pulse 1.8s ease-out infinite;
+      }
+      h1 {
+        margin: 0;
+        color: #f7fbf8;
+        font-size: clamp(48px, 7vw, 82px);
+        line-height: 0.96;
+        letter-spacing: 0;
+        text-shadow: 0 2px 18px rgba(8, 12, 11, 0.55);
+      }
+      p {
+        margin: 20px 0 0;
+        max-width: 590px;
+        color: #c8d9d2;
+        font-size: clamp(16px, 2vw, 20px);
+        line-height: 1.55;
+        text-shadow: 0 1px 10px rgba(8, 12, 11, 0.50);
+      }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(39, 211, 176, 0.52); }
+        70% { box-shadow: 0 0 0 12px rgba(39, 211, 176, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(39, 211, 176, 0); }
+      }
+      @media (max-width: 720px) {
+        .ma-brand {
+          grid-template-columns: 1fr;
+          height: 430px;
+          padding: 22px;
+          gap: 12px;
+        }
+        .ma-brand::before {
+          background: radial-gradient(circle at 62% 64%, rgba(39, 211, 176, 0.18), transparent 38%);
+        }
+        .brand-copy {
+          justify-content: flex-start;
+          max-width: 700px;
+        }
+        .brand-visual {
+          min-height: 0;
+          height: 180px;
+        }
+        .brand-kicker {
+          font-size: 0.72rem;
+          margin-bottom: 10px;
+        }
+        h1 {
+          font-size: clamp(38px, 12vw, 58px);
+        }
+        p {
+          margin-top: 12px;
+          font-size: 15px;
+          line-height: 1.38;
+        }
+      }
+      @media (max-width: 440px) {
+        .ma-brand {
+          padding: 18px;
+          gap: 10px;
+        }
+        .brand-kicker {
+          font-size: 0.66rem;
+        }
+        h1 {
+          font-size: clamp(34px, 11vw, 44px);
+        }
+        p {
+          font-size: 13px;
+          line-height: 1.34;
+        }
+        .brand-visual {
+          height: 160px;
+        }
+      }
+    </style>
+    <script>
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const canvas = document.getElementById("arenaCanvas");
+      const ctx = canvas.getContext("2d");
+      let width = 0;
+      let height = 0;
+      const nodeBox = {width: 96, height: 38, radius: 7};
+      const agentRadius = 14;
+      const nodes = [
+        {name: "Foyer", x: 0.14, y: 0.30, tone: "#9fd0c1"},
+        {name: "Library", x: 0.43, y: 0.16, tone: "#f1c46d"},
+        {name: "Kitchen", x: 0.68, y: 0.32, tone: "#89a8ff"},
+        {name: "Study", x: 0.88, y: 0.23, tone: "#e1685b"},
+        {name: "Garden", x: 0.82, y: 0.62, tone: "#8fd18c"},
+        {name: "Knife", x: 0.54, y: 0.72, tone: "#27d3b0"},
+        {name: "Parlor", x: 0.23, y: 0.60, tone: "#f1c46d"}
+      ];
+      const graphExtent = nodes.reduce((extent, node) => ({
+        minX: Math.min(extent.minX, node.x),
+        maxX: Math.max(extent.maxX, node.x),
+        minY: Math.min(extent.minY, node.y),
+        maxY: Math.max(extent.maxY, node.y)
+      }), {minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity});
+      const links = [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0],[1,5],[2,6]];
+      const patrolRoute = [0,1,2,3,4,5,6,0,1,5,4,3,2,6,5,1];
+      const paths = {
+        D: patrolRoute,
+        C: [...patrolRoute].reverse(),
+        N: [4,5,1,0,6,2,3,4,5,6,0,1,2,6,5]
+      };
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(1, rect.width);
+        height = Math.max(1, rect.height);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      window.addEventListener("resize", resize);
+      if (window.ResizeObserver) {
+        new ResizeObserver(resize).observe(canvas);
+      }
+      resize();
+
+      function visualBounds() {
+        const minX = nodeBox.width / 2 + 6;
+        const minY = nodeBox.height / 2 + agentRadius + 6;
+        const padX = Math.min(Math.max(width * 0.07, minX), Math.max(minX, width * 0.18));
+        const padY = Math.min(Math.max(height * 0.08, minY), Math.max(minY, height * 0.18));
+        return {
+          x: Math.min(padX, Math.max(0, width / 2 - minX)),
+          y: Math.min(padY, Math.max(0, height / 2 - minY))
+        };
+      }
+
+      function unit(value, min, max) {
+        return (value - min) / Math.max(0.001, max - min);
+      }
+
+      function point(node) {
+        const pad = visualBounds();
+        return {
+          x: pad.x + unit(node.x, graphExtent.minX, graphExtent.maxX) * Math.max(1, width - pad.x * 2),
+          y: pad.y + unit(node.y, graphExtent.minY, graphExtent.maxY) * Math.max(1, height - pad.y * 2)
+        };
+      }
+
+      function roundedRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      function routePosition(route, phase) {
+        const scaled = phase * route.length;
+        const index = Math.floor(scaled) % route.length;
+        const nextIndex = (index + 1) % route.length;
+        const local = scaled - Math.floor(scaled);
+        const a = point(nodes[route[index]]);
+        const b = point(nodes[route[nextIndex]]);
+        return {
+          x: a.x + (b.x - a.x) * local,
+          y: a.y + (b.y - a.y) * local
+        };
+      }
+
+      function drawAgent(label, color, route, offset, time) {
+        const pos = routePosition(route, (time * 0.035 + offset) % 1);
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, agentRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#0d1110";
+        ctx.font = "900 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, pos.x, pos.y + 0.5);
+        ctx.restore();
+      }
+
+      function drawLinkSignal(a, b, color, phase) {
+        const x = a.x + (b.x - a.x) * phase;
+        const y = a.y + (b.y - a.y) * phase;
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function draw(timeMs) {
+        const time = reduceMotion ? 18 : timeMs / 1000;
+        ctx.clearRect(0, 0, width, height);
+
+        links.forEach(([aIndex, bIndex]) => {
+          const a = point(nodes[aIndex]);
+          const b = point(nodes[bIndex]);
+          ctx.strokeStyle = "rgba(191, 213, 204, 0.16)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        });
+
+        links.forEach(([aIndex, bIndex], index) => {
+          const a = point(nodes[aIndex]);
+          const b = point(nodes[bIndex]);
+          const phase = reduceMotion ? 0.5 : (time * 0.18 + index * 0.17) % 1;
+          drawLinkSignal(a, b, nodes[bIndex].tone, phase);
+        });
+
+        nodes.forEach((node, index) => {
+          const p = point(node);
+          const pulse = reduceMotion ? 0.4 : (Math.sin(time * 2.1 + index) + 1) / 2;
+          ctx.fillStyle = "rgba(16, 20, 18, 0.78)";
+          ctx.strokeStyle = node.tone;
+          ctx.lineWidth = 1 + pulse;
+          roundedRect(
+            p.x - nodeBox.width / 2,
+            p.y - nodeBox.height / 2,
+            nodeBox.width,
+            nodeBox.height,
+            nodeBox.radius
+          );
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#dce9e3";
+          ctx.font = "700 11px ui-sans-serif, system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(node.name, p.x, p.y + 0.5);
+        });
+
+        drawAgent("D", "#27d3b0", paths.D, 0.02, time);
+        drawAgent("C", "#e1685b", paths.C, 0.24, time);
+        drawAgent("N", "#f1c46d", paths.N, 0.52, time);
+
+        ctx.fillStyle = "rgba(247, 251, 248, 0.05)";
+        for (let i = 0; i < 18; i++) {
+          const x = ((i * 173 + time * 16) % (width + 80)) - 40;
+          const y = 72 + ((i * 67) % Math.max(1, height - 140));
+          ctx.beginPath();
+          ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (!reduceMotion) requestAnimationFrame(draw);
+      }
+      function syncFrameHeight() {
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:setFrameHeight",
+          height: Math.ceil(document.documentElement.scrollHeight)
+        }, "*");
+      }
+      window.addEventListener("load", syncFrameHeight);
+      window.addEventListener("resize", syncFrameHeight);
+      if (window.ResizeObserver) {
+        new ResizeObserver(syncFrameHeight).observe(document.body);
+      }
+      syncFrameHeight();
+      requestAnimationFrame(draw);
+    </script>
+    """
+    encoded = base64.b64encode(component.encode("utf-8")).decode("ascii")
+    st.iframe(f"data:text/html;base64,{encoded}", height=430)
+
+
 def render_header(index: dict[str, Any], matches: pd.DataFrame) -> None:
     outputs = _global_outputs(matches)
     best_d = (outputs.get("detective_leaderboard") or [{}])[0].get("model")
@@ -834,7 +1204,15 @@ def render_replay(repo_id: str, revision: str, base_url: str, matches: pd.DataFr
         )
     selected_label = st.selectbox("Episode", labels, index=0)
     selected = replayable.iloc[labels.index(selected_label)]
-    records = load_jsonl_gz(repo_id, revision, str(selected["trajectory_file"]), base_url)
+    trajectory_file = str(selected["trajectory_file"])
+    try:
+        records = load_jsonl_gz(repo_id, revision, trajectory_file, base_url)
+    except Exception as exc:  # noqa: BLE001 - missing remote trajectories should not break the app.
+        st.warning(f"Could not load trajectory `{trajectory_file}`: {exc}")
+        with st.container(border=True):
+            st.markdown('<div class="panel-title">Episode Summary</div>', unsafe_allow_html=True)
+            st.markdown(_replay_summary(selected), unsafe_allow_html=True)
+        return
     steps = [record for record in records if record.get("kind") == "step"]
     footer = next((record for record in reversed(records) if record.get("kind") == "footer"), {})
 
@@ -1143,6 +1521,7 @@ def main() -> None:
         st.error(f"Could not load unified matches: {exc}")
         st.stop()
 
+    render_branding(index, matches)
     models, levels = render_filters(matches)
     filtered_matches = _filter_matches(matches, models, levels)
     render_header(index, filtered_matches)
