@@ -111,8 +111,8 @@ def _css() -> None:
           color: #ecf4ef;
           border: 1px solid #27312d;
           border-radius: 8px;
-          padding: 24px 18px 14px 18px;
-          margin-top: 12px;
+          padding: 14px 18px;
+          margin-top: 6px;
           margin-bottom: 14px;
           box-shadow: 0 12px 32px rgba(16, 20, 18, 0.18);
           overflow: visible;
@@ -136,7 +136,7 @@ def _css() -> None:
           display: grid;
           grid-template-columns: repeat(5, minmax(120px, 1fr));
           gap: 8px;
-          margin-top: 14px;
+          margin-top: 0;
         }
         .console-kv {
           border: 1px solid #2e3a35;
@@ -910,11 +910,6 @@ def render_header(index: dict[str, Any], matches: pd.DataFrame) -> None:
     st.markdown(
         f"""
         <div class="arena-console">
-          <div class="console-top">
-            <div>
-              <div class="console-title">MysteryArena</div>
-            </div>
-          </div>
           <div class="console-grid">
             <div class="console-kv"><small>Run</small><strong>All Runs</strong></div>
             <div class="console-kv"><small>Matches</small><strong>{len(matches)}</strong></div>
@@ -1522,9 +1517,11 @@ def main() -> None:
         st.stop()
 
     render_branding(index, matches)
+    header_slot = st.container()
     models, levels = render_filters(matches)
     filtered_matches = _filter_matches(matches, models, levels)
-    render_header(index, filtered_matches)
+    with header_slot:
+        render_header(index, filtered_matches)
 
     overview, leaderboards, matrix, replay, api_docs = st.tabs([
         "Overview",
