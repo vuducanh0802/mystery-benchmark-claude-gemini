@@ -107,15 +107,29 @@ def _css() -> None:
           font-size: 1.35rem;
         }
         .arena-console {
+          position: relative;
           background: #101412;
           color: #ecf4ef;
           border: 1px solid #27312d;
-          border-radius: 8px;
+          border-top: 0;
+          border-radius: 0 0 8px 8px;
           padding: 14px 18px;
           margin-top: 6px;
           margin-bottom: 14px;
           box-shadow: 0 12px 32px rgba(16, 20, 18, 0.18);
           overflow: visible;
+        }
+        .arena-console::before {
+          content: "";
+          position: absolute;
+          left: -1px;
+          right: -1px;
+          top: -34px;
+          height: 34px;
+          background: #101412;
+          border-left: 1px solid #27312d;
+          border-right: 1px solid #27312d;
+          pointer-events: none;
         }
         .console-top {
           display: flex;
@@ -133,6 +147,7 @@ def _css() -> None:
           padding-top: 1px;
         }
         .console-grid {
+          position: relative;
           display: grid;
           grid-template-columns: repeat(5, minmax(120px, 1fr));
           gap: 8px;
@@ -564,7 +579,8 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
         min-height: 0;
         overflow: hidden;
         border: 1px solid #20312d;
-        border-radius: 8px;
+        border-bottom: 0;
+        border-radius: 8px 8px 0 0;
         background-color: #101412;
         background-image:
           linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
