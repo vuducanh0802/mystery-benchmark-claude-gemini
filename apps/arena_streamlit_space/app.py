@@ -106,87 +106,6 @@ def _css() -> None:
           color: var(--ink);
           font-size: 1.35rem;
         }
-        .arena-console {
-          position: relative;
-          background-color: #101412;
-          background-image:
-            radial-gradient(circle at 72% -180px, rgba(39, 211, 176, 0.12), transparent 310px),
-            linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
-          background-position: 0 0, 0 -396px, 0 -396px;
-          background-size: auto, 42px 42px, 42px 42px;
-          color: #ecf4ef;
-          border: 1px solid #27312d;
-          border-top: 0;
-          border-radius: 0 0 8px 8px;
-          padding: 14px 18px;
-          margin-top: 6px;
-          margin-bottom: 14px;
-          box-shadow: 0 12px 32px rgba(16, 20, 18, 0.18);
-          overflow: visible;
-        }
-        .arena-console::before {
-          content: "";
-          position: absolute;
-          left: -1px;
-          right: -1px;
-          top: -34px;
-          height: 34px;
-          background-color: #101412;
-          background-image:
-            radial-gradient(circle at 72% -146px, rgba(39, 211, 176, 0.12), transparent 310px),
-            linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
-          background-position: 0 0, 0 -362px, 0 -362px;
-          background-size: auto, 42px 42px, 42px 42px;
-          border-left: 1px solid #27312d;
-          border-right: 1px solid #27312d;
-          pointer-events: none;
-        }
-        .console-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-        .console-title {
-          font-size: 1.6rem;
-          line-height: 1.35;
-          font-weight: 780;
-          margin: 0;
-          letter-spacing: 0;
-          padding-top: 1px;
-        }
-        .console-grid {
-          position: relative;
-          z-index: 1;
-          display: grid;
-          grid-template-columns: repeat(5, minmax(120px, 1fr));
-          gap: 8px;
-          margin-top: 0;
-        }
-        .console-kv {
-          border: 1px solid #2e3a35;
-          background: #171d1a;
-          border-radius: 7px;
-          padding: 8px 10px;
-          min-height: 54px;
-        }
-        .console-kv small {
-          display: block;
-          color: #8da299;
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          font-weight: 760;
-        }
-        .console-kv strong {
-          display: block;
-          margin-top: 2px;
-          color: #f4faf7;
-          font-size: 0.98rem;
-          word-break: break-word;
-        }
         .panel {
           background: var(--panel);
           border: 1px solid var(--line);
@@ -346,7 +265,6 @@ def _css() -> None:
           padding: 8px 12px;
         }
         @media (max-width: 900px) {
-          .console-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
           .run-row { grid-template-columns: 1fr; }
           .rank-card { grid-template-columns: 36px 1fr; }
           .replay-summary { grid-template-columns: 1fr; }
@@ -559,19 +477,37 @@ def _runs_df(index: dict[str, Any]) -> pd.DataFrame:
 
 
 def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
+    outputs = _global_outputs(_matches)
+    best_d = (outputs.get("detective_leaderboard") or [{}])[0].get("model")
+    best_c = (outputs.get("culprit_leaderboard") or [{}])[0].get("model")
+    total_matches = sum(
+        int(item.get("matches") or 0)
+        for item in _index.get("runs", [])
+    )
+    summary_cards = f"""
+      <div class="summary-kv"><small>Matches</small><strong>{len(_matches)}</strong></div>
+      <div class="summary-kv"><small>Total Matches</small><strong>{total_matches}</strong></div>
+      <div class="summary-kv"><small>Top Detective</small><strong>{_escape(best_d or '-')}</strong></div>
+      <div class="summary-kv"><small>Top Culprit</small><strong>{_escape(best_c or '-')}</strong></div>
+    """
     component = """
-    <section class="ma-brand" aria-label="MysteryArena introduction">
-      <div class="brand-copy">
-        <div class="brand-kicker"><span class="pulse"></span> Multi-agent mystery benchmark</div>
-        <h1>MysteryArena</h1>
-        <p>
-          We evaluate agents inside procedural murder mysteries. A detective agent searches
-          for evidence, a culprit agent tries to stay hidden, and every duel becomes a
-          scored trajectory that can be replayed, compared, and audited.
-        </p>
+    <section class="ma-shell" aria-label="MysteryArena introduction">
+      <div class="ma-brand">
+        <div class="brand-copy">
+          <div class="brand-kicker"><span class="pulse"></span> Multi-agent mystery benchmark</div>
+          <h1>MysteryArena</h1>
+          <p>
+            We evaluate agents inside procedural murder mysteries. A detective agent searches
+            for evidence, a culprit agent tries to stay hidden, and every duel becomes a
+            scored trajectory that can be replayed, compared, and audited.
+          </p>
+        </div>
+        <div class="brand-visual" aria-hidden="true">
+          <canvas id="arenaCanvas" aria-label="Animated duel between detective, culprit, and NPC agents"></canvas>
+        </div>
       </div>
-      <div class="brand-visual" aria-hidden="true">
-        <canvas id="arenaCanvas" aria-label="Animated duel between detective, culprit, and NPC agents"></canvas>
+      <div class="summary-grid">
+        __SUMMARY_CARDS__
       </div>
     </section>
     <style>
@@ -582,33 +518,38 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
         color: #eef6f1;
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-      .ma-brand {
+      .ma-shell {
         position: relative;
-        display: grid;
-        grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
-        align-items: stretch;
-        gap: 24px;
-        height: 430px;
-        min-height: 0;
         overflow: hidden;
+        min-height: 650px;
         border: 1px solid #20312d;
-        border-bottom: 0;
-        border-radius: 8px 8px 0 0;
+        border-radius: 8px;
         background-color: #101412;
         background-image:
           linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
           linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
         background-size: 42px 42px;
         box-shadow: 0 18px 46px rgba(16, 20, 18, 0.20);
-        padding: 44px;
+        padding: 44px 44px 20px;
       }
-      .ma-brand::before {
+      .ma-shell::before {
         content: "";
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at 72% 58%, rgba(39, 211, 176, 0.18), transparent 32%);
+        background: radial-gradient(ellipse at 72% 46%, rgba(39, 211, 176, 0.105) 0%, rgba(39, 211, 176, 0.060) 36%, rgba(39, 211, 176, 0.024) 58%, rgba(39, 211, 176, 0) 78%);
         pointer-events: none;
         z-index: 0;
+      }
+      .ma-shell > * {
+        position: relative;
+        z-index: 1;
+      }
+      .ma-brand {
+        display: grid;
+        grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+        align-items: stretch;
+        gap: 24px;
+        min-height: 430px;
       }
       .brand-copy {
         position: relative;
@@ -630,6 +571,33 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
         width: 100%;
         height: 100%;
         z-index: 1;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .summary-kv {
+        min-height: 72px;
+        border: 1px solid #2e3a35;
+        border-radius: 7px;
+        background: rgba(23, 29, 26, 0.82);
+        padding: 11px 13px;
+      }
+      .summary-kv small {
+        display: block;
+        color: #8da299;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        font-weight: 760;
+      }
+      .summary-kv strong {
+        display: block;
+        margin-top: 6px;
+        color: #f4faf7;
+        font-size: 0.98rem;
+        word-break: break-word;
       }
       .brand-kicker {
         display: inline-flex;
@@ -672,14 +640,13 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
         100% { box-shadow: 0 0 0 0 rgba(39, 211, 176, 0); }
       }
       @media (max-width: 720px) {
+        .ma-shell {
+          padding: 22px;
+        }
         .ma-brand {
           grid-template-columns: 1fr;
-          height: 430px;
-          padding: 22px;
+          min-height: 430px;
           gap: 12px;
-        }
-        .ma-brand::before {
-          background: radial-gradient(circle at 62% 64%, rgba(39, 211, 176, 0.18), transparent 38%);
         }
         .brand-copy {
           justify-content: flex-start;
@@ -701,10 +668,17 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
           font-size: 15px;
           line-height: 1.38;
         }
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          margin-top: 16px;
+        }
       }
       @media (max-width: 440px) {
-        .ma-brand {
+        .ma-shell {
           padding: 18px;
+        }
+        .ma-brand {
+          min-height: 380px;
           gap: 10px;
         }
         .brand-kicker {
@@ -924,32 +898,9 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
       requestAnimationFrame(draw);
     </script>
     """
+    component = component.replace("__SUMMARY_CARDS__", summary_cards)
     encoded = base64.b64encode(component.encode("utf-8")).decode("ascii")
-    st.iframe(f"data:text/html;base64,{encoded}", height=430)
-
-
-def render_header(index: dict[str, Any], matches: pd.DataFrame) -> None:
-    outputs = _global_outputs(matches)
-    best_d = (outputs.get("detective_leaderboard") or [{}])[0].get("model")
-    best_c = (outputs.get("culprit_leaderboard") or [{}])[0].get("model")
-    total_matches = sum(
-        int(item.get("matches") or 0)
-        for item in index.get("runs", [])
-    )
-    st.markdown(
-        f"""
-        <div class="arena-console">
-          <div class="console-grid">
-            <div class="console-kv"><small>Run</small><strong>All Runs</strong></div>
-            <div class="console-kv"><small>Matches</small><strong>{len(matches)}</strong></div>
-            <div class="console-kv"><small>Total Matches</small><strong>{total_matches}</strong></div>
-            <div class="console-kv"><small>Top Detective</small><strong>{_escape(best_d or '-')}</strong></div>
-            <div class="console-kv"><small>Top Culprit</small><strong>{_escape(best_c or '-')}</strong></div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.iframe(f"data:text/html;base64,{encoded}", height=650)
 
 
 def render_rank_cards(df: pd.DataFrame, *, value_col: str = "mean_payoff", limit: int = 6) -> None:
@@ -1545,12 +1496,11 @@ def main() -> None:
         st.error(f"Could not load unified matches: {exc}")
         st.stop()
 
-    render_branding(index, matches)
-    header_slot = st.container()
+    brand_slot = st.container()
     models, levels = render_filters(matches)
     filtered_matches = _filter_matches(matches, models, levels)
-    with header_slot:
-        render_header(index, filtered_matches)
+    with brand_slot:
+        render_branding(index, filtered_matches)
 
     overview, leaderboards, matrix, replay, api_docs = st.tabs([
         "Overview",
