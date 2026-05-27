@@ -9,6 +9,9 @@ from typing import Any
 from arena.roster import ModelSpec
 
 
+PAYOFF_SCHEMA = "detective_composite_v1_culprit_exposure_v1"
+
+
 def _clamp01(value: Any) -> float:
     try:
         x = float(value)
@@ -41,6 +44,101 @@ def detective_payoff(summary: dict[str, Any], metrics: dict[str, Any] | None = N
     return 1.0 if summary.get("accusation_correct") else 0.0
 
 
+def _as_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes"}:
+            return True
+        if normalized in {"0", "false", "no"}:
+            return False
+    return None
+
+
+def _bool_from(source: dict[str, Any], key: str) -> bool | None:
+    if key not in source:
+        return None
+    return _as_bool(source.get(key))
+
+
+def _first_bool(*values: bool | None) -> bool | None:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def culprit_payoff(summary: dict[str, Any], metrics: dict[str, Any] | None = None) -> float:
+    """Primary Arena culprit payoff in [0, 1].
+
+    Detective payoff rewards full case quality, including evidence citation and
+    elimination subscores. The culprit payoff is intentionally not its complement:
+    the culprit's primary objective is escaping identification in the final
+    accusation.
+    """
+    raw_score = summary.get("score_result") or {}
+    score = _score_result(summary, metrics)
+    metrics = metrics or {}
+
+    suspect = _first_bool(
+        _bool_from(score, "correct_suspect"),
+        _bool_from(metrics, "suspect_correct"),
+    )
+    weapon = _first_bool(
+        _bool_from(score, "correct_weapon"),
+        _bool_from(metrics, "weapon_correct"),
+    )
+    room = _first_bool(
+        _bool_from(score, "correct_room"),
+        _bool_from(metrics, "location_correct"),
+    )
+
+    if suspect is None and weapon is None and room is None:
+        has_accusation_score = (
+            "accusation_score" in raw_score
+            or "accusation_score" in metrics
+            or "partial_score" in metrics
+        )
+        if has_accusation_score:
+            return 1.0 - _clamp01(score.get("accusation_score"))
+        accusation_correct = _as_bool(summary.get("accusation_correct"))
+        if accusation_correct is not None:
+            return 0.0 if accusation_correct else 1.0
+        return 1.0
+
+    # Identifying the culprit matters most; weapon and room correctness are
+    # secondary case-closure signals.
+    exposure = (
+        0.70 * float(bool(suspect))
+        + 0.15 * float(bool(weapon))
+        + 0.15 * float(bool(room))
+    )
+    return 1.0 - _clamp01(exposure)
+
+
+def recompute_match_payoffs(match: dict[str, Any]) -> dict[str, Any]:
+    """Return a match copy with current payoff semantics applied."""
+    normalized = dict(match)
+    if normalized.get("payoff_schema") == PAYOFF_SCHEMA:
+        return normalized
+
+    summary = {
+        "score_result": normalized.get("score_result") or {},
+        "accusation_correct": normalized.get("accusation_correct"),
+    }
+    metrics = normalized.get("metrics") or {}
+    error = normalized.get("error")
+    d_payoff = 0.0 if error else detective_payoff(summary, metrics)
+    c_payoff = 0.0 if error else culprit_payoff(summary, metrics)
+    normalized["detective_payoff"] = round(d_payoff, 6)
+    normalized["culprit_payoff"] = round(c_payoff, 6)
+    normalized["payoff_schema"] = PAYOFF_SCHEMA
+    return normalized
+
+
 def _failed_counts(action_trace: list[dict[str, Any]]) -> tuple[int, int]:
     detective_failed = 0
     culprit_failed = 0
@@ -71,7 +169,7 @@ def match_from_episode(
     metrics = result.metrics.to_dict() if result.metrics else {}
     score = _score_result(summary, metrics)
     d_payoff = 0.0 if result.error else detective_payoff(summary, metrics)
-    c_payoff = 1.0 - d_payoff
+    c_payoff = 0.0 if result.error else culprit_payoff(summary, metrics)
     detective_failed, culprit_failed = _failed_counts(result.action_trace)
     culprit_actions = sum(1 for rec in result.action_trace if rec.get("role") == "culprit")
     return {
@@ -82,6 +180,7 @@ def match_from_episode(
         "detective": detective.to_dict(),
         "culprit": culprit.to_dict(),
         "npc": dict(npc),
+        "payoff_schema": PAYOFF_SCHEMA,
         "detective_payoff": round(d_payoff, 6),
         "culprit_payoff": round(c_payoff, 6),
         "solved": bool(metrics.get("solved", summary.get("accusation_correct", False))),
@@ -126,6 +225,7 @@ def match_from_trajectory(
     score = _score_result(summary, metrics)
     error = footer.get("error")
     d_payoff = 0.0 if error else detective_payoff(summary, metrics)
+    c_payoff = 0.0 if error else culprit_payoff(summary, metrics)
     detective_failed, culprit_failed = _failed_counts(steps)
     return {
         "run_id": header.get("arena_run_id", run_id),
@@ -135,8 +235,9 @@ def match_from_trajectory(
         "detective": detective.to_dict(),
         "culprit": culprit.to_dict(),
         "npc": dict(npc),
+        "payoff_schema": PAYOFF_SCHEMA,
         "detective_payoff": round(d_payoff, 6),
-        "culprit_payoff": round(1.0 - d_payoff, 6),
+        "culprit_payoff": round(c_payoff, 6),
         "solved": bool(metrics.get("solved", summary.get("accusation_correct", False))),
         "accusation_correct": bool(summary.get("accusation_correct", metrics.get("solved", False))),
         "score_result": score,

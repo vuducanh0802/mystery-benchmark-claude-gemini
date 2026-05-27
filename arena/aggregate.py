@@ -9,6 +9,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from arena.metrics import recompute_match_payoffs
 from arena.trueskill import compute_role_trueskill
 
 
@@ -17,7 +18,7 @@ def load_matches(arena_dir: str | Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     return [
-        json.loads(line)
+        recompute_match_payoffs(json.loads(line))
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
@@ -173,15 +174,18 @@ def aggregate_matches(
         row["rank"] = i
 
     matrix: dict[str, dict[str, dict[str, float | int]]] = defaultdict(dict)
-    grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[tuple[float, float]]] = defaultdict(list)
     for match in matches:
         d = match.get("detective", {}).get("name", "unknown")
         c = match.get("culprit", {}).get("name", "unknown")
-        grouped[(d, c)].append(float(match.get("detective_payoff", 0.0)))
+        grouped[(d, c)].append((
+            float(match.get("detective_payoff", 0.0)),
+            float(match.get("culprit_payoff", 0.0)),
+        ))
     for (detective, culprit), values in grouped.items():
         matrix[detective][culprit] = {
-            "detective_payoff": round(_avg(values), 4),
-            "culprit_payoff": round(1.0 - _avg(values), 4),
+            "detective_payoff": round(_avg([value[0] for value in values]), 4),
+            "culprit_payoff": round(_avg([value[1] for value in values]), 4),
             "n": len(values),
         }
 

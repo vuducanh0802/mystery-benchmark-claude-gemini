@@ -76,10 +76,11 @@ def compute_role_trueskill(
 ) -> dict[str, Any]:
     """Compute separate detective and culprit TrueSkill ratings.
 
-    Arena payoffs are continuous. TrueSkill itself is ordinal, so each episode
-    is converted into a role win/loss by comparing detective payoff against the
-    symmetric 0.5 split. Matches inside ``draw_threshold`` of 0.5 are treated
-    as draws and leave ratings unchanged.
+    Arena payoffs are continuous and role-specific. TrueSkill itself is
+    ordinal, so each episode is converted into a role win/loss by comparing
+    detective payoff with culprit payoff. Matches where the absolute payoff
+    delta is inside ``draw_threshold`` are treated as draws and leave ratings
+    unchanged.
     """
     detective_ratings: defaultdict[str, TrueSkillRating] = defaultdict(
         lambda: TrueSkillRating(mu=mu, sigma=sigma)
@@ -103,11 +104,19 @@ def compute_role_trueskill(
         c_name = match.get("culprit", {}).get("name", "unknown")
         detective_rating = detective_ratings[d_name]
         culprit_rating = culprit_ratings[c_name]
-        payoff = max(0.0, min(1.0, float(match.get("detective_payoff", 0.0))))
+        detective_payoff = max(
+            0.0,
+            min(1.0, float(match.get("detective_payoff", 0.0))),
+        )
+        culprit_payoff = max(
+            0.0,
+            min(1.0, float(match.get("culprit_payoff", 0.0))),
+        )
+        payoff_delta = detective_payoff - culprit_payoff
 
-        if abs(payoff - 0.5) <= draw_threshold:
+        if abs(payoff_delta) <= draw_threshold:
             continue
-        if payoff > 0.5:
+        if payoff_delta > 0.0:
             detective_rating, culprit_rating = _update_win(
                 detective_rating,
                 culprit_rating,

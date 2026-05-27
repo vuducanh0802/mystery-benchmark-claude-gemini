@@ -176,7 +176,7 @@ uv run python scripts/arena_run.py \
 
 默认也会开启断点续跑。重新执行同一个 `--out` 目录时，runner 会先读取已有的完整 trajectory，把它们计入 TUI、leaderboard 和 TrueSkill rating，只继续跑缺失或未完成的局。只有写入了 footer 的 trajectory 才算完成；中断留下的半截 trajectory 会重新跑。
 
-Ranking 使用 mean payoff。展示里的 `Skill` 是辅助的 role-specific TrueSkill conservative score `mu - 3 * sigma`，`Sigma` 越高表示不确定性越高。单局会先把 detective payoff 按 0.5 分界转成 TrueSkill 胜负：`payoff > 0.5` 为 detective win，`payoff < 0.5` 为 culprit win。
+Ranking 使用 mean payoff。展示里的 `Skill` 是辅助的 role-specific TrueSkill conservative score `mu - 3 * sigma`，`Sigma` 越高表示不确定性越高。单局会比较 detective payoff 和 culprit payoff 来转成 TrueSkill 胜负：`detective_payoff > culprit_payoff` 为 detective win，反之为 culprit win。
 
 如果要强制重跑同一个输出目录：
 

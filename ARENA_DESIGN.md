@@ -66,7 +66,12 @@ detective_payoff = composite_score
 主分数：
 
 ```text
-culprit_payoff = 1 - detective_payoff
+culprit_payoff = 1 - culprit_exposure
+
+culprit_exposure =
+  0.70 * correct_suspect
+  + 0.15 * correct_weapon
+  + 0.15 * correct_room
 ```
 
 辅助指标：
@@ -79,6 +84,9 @@ culprit_payoff = 1 - detective_payoff
 - evidence interference count
 
 注意：guard-blocked action 不应该作为正向奖励。否则模型会学会反复尝试非法破坏。它只作为诊断项。
+
+`culprit_payoff` 不使用 `1 - detective_payoff`。侦探主分 `detective_payoff`
+是完整 composite score，包含证据引用、alibi、elimination、效率等维度；凶手的主目标是避免在最终指控中暴露。因此侦探抓对人但证据引用不完整时，侦探 composite 可以偏低，但凶手不应获得高 payoff。
 
 ### 3. Cross-Role Matrix
 
@@ -128,10 +136,11 @@ CI 用 case-level bootstrap。重采样单位是 episode/case，不是 step。
 每一局 `D` vs `C` 先把连续 payoff 转成 TrueSkill 的序关系：
 
 ```text
-p = detective_payoff
-p > 0.5  => detective win
-p < 0.5  => culprit win
-p == 0.5 => draw / no-op
+d = detective_payoff
+c = culprit_payoff
+d > c  => detective win
+d < c  => culprit win
+d == c => draw / no-op
 ```
 
 建议：
@@ -223,8 +232,9 @@ arena/results/<run_id>/
   "detective": {"name": "model_a", "provider": "openai", "model": "..."},
   "culprit": {"name": "model_b", "provider": "anthropic", "model": "..."},
   "npc": {"provider": "vllm", "model": "...", "seed": 42},
+  "payoff_schema": "detective_composite_v1_culprit_exposure_v1",
   "detective_payoff": 0.72,
-  "culprit_payoff": 0.28,
+  "culprit_payoff": 0.0,
   "solved": true,
   "accusation_correct": true,
   "score_result": {

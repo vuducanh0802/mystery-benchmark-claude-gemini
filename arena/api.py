@@ -19,7 +19,13 @@ from pydantic import BaseModel, Field
 from agents.base_agent import BaseAgent
 from arena.aggregate import aggregate_matches, load_matches, write_outputs
 from arena.jobs import ArenaJobManager
-from arena.metrics import detective_payoff, match_from_trajectory, read_jsonl
+from arena.metrics import (
+    PAYOFF_SCHEMA,
+    culprit_payoff,
+    detective_payoff,
+    match_from_trajectory,
+    read_jsonl,
+)
 from arena.roster import (
     REGISTRY,
     ModelSpec,
@@ -446,11 +452,13 @@ class InteractiveArenaSession:
             )
             metrics_dict = metrics.to_dict()
         d_payoff = 0.0 if self.error else detective_payoff(summary, metrics_dict)
+        c_payoff = 0.0 if self.error else culprit_payoff(summary, metrics_dict)
         return {
             "summary": summary,
             "metrics": metrics_dict,
+            "payoff_schema": PAYOFF_SCHEMA,
             "detective_payoff": round(d_payoff, 6),
-            "culprit_payoff": round(1.0 - d_payoff, 6),
+            "culprit_payoff": round(c_payoff, 6),
             "solved": bool(summary.get("accusation_correct", False)),
         }
 

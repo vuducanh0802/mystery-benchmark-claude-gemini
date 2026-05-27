@@ -796,7 +796,7 @@ def _terminal_text(value: Any) -> str:
 
 def _replay_summary(selected: pd.Series) -> str:
     detective_payoff = _safe_float(selected.get("detective_payoff"))
-    culprit_payoff = _safe_float(selected.get("culprit_payoff"), 1.0 - detective_payoff)
+    culprit_payoff = _safe_float(selected.get("culprit_payoff"))
     return f"""
     <div class="replay-summary">
       <div class="replay-card">
