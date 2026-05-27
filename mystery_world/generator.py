@@ -220,12 +220,19 @@ def _generate_characters(
             hands=str(hands[i]),
         )
 
-    # MEDIUM+: each of the culprit's trait values must appear on at least one other
-    # suspect so no single trait uniquely identifies the culprit.
-    # char_list[1] = culprit, char_list[2:1+num_suspects] = other suspects.
+    suspect_indices = list(range(1, min(1 + config.num_suspects, total)))
+    if not suspect_indices:
+        raise ValueError("Mystery generation requires at least one suspect")
+    culprit_idx = int(rng.choice(suspect_indices))
+
+    # MEDIUM+: each of the culprit's trait values must appear on at least one
+    # other suspect so no single trait uniquely identifies the culprit.
     if config.evidence_ambiguity > 0.1:
-        culprit_char = char_list[1]
-        other_suspects = char_list[2:1 + config.num_suspects]
+        culprit_char = char_list[culprit_idx]
+        other_suspects = [
+            char_list[i] for i in suspect_indices
+            if i != culprit_idx
+        ]
         if other_suspects:
             for trait_name in ("build", "hair", "hands"):
                 culprit_val = getattr(culprit_char.physical_traits, trait_name)
@@ -247,14 +254,12 @@ def _generate_characters(
     victim.roles.append(CharacterRole.VICTIM)
     victim.is_alive = False
 
-    culprit_idx = 1   # first suspect is the culprit
-    culprit = char_list[culprit_idx]
-    culprit.roles.append(CharacterRole.SUSPECT)
-    culprit.is_culprit = True
-
-    for i in range(2, 1 + config.num_suspects):
+    for i in suspect_indices:
         if i < len(char_list):
             char_list[i].roles.append(CharacterRole.SUSPECT)
+
+    culprit = char_list[culprit_idx]
+    culprit.is_culprit = True
     
     for i in range(1 + config.num_suspects, total):
         if i < len(char_list):
