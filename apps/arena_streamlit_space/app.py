@@ -108,7 +108,13 @@ def _css() -> None:
         }
         .arena-console {
           position: relative;
-          background: #101412;
+          background-color: #101412;
+          background-image:
+            radial-gradient(circle at 72% -180px, rgba(39, 211, 176, 0.12), transparent 310px),
+            linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
+          background-position: 0 0, 0 -396px, 0 -396px;
+          background-size: auto, 42px 42px, 42px 42px;
           color: #ecf4ef;
           border: 1px solid #27312d;
           border-top: 0;
@@ -126,7 +132,13 @@ def _css() -> None:
           right: -1px;
           top: -34px;
           height: 34px;
-          background: #101412;
+          background-color: #101412;
+          background-image:
+            radial-gradient(circle at 72% -146px, rgba(39, 211, 176, 0.12), transparent 310px),
+            linear-gradient(rgba(159, 208, 193, 0.055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(159, 208, 193, 0.055) 1px, transparent 1px);
+          background-position: 0 0, 0 -362px, 0 -362px;
+          background-size: auto, 42px 42px, 42px 42px;
           border-left: 1px solid #27312d;
           border-right: 1px solid #27312d;
           pointer-events: none;
@@ -148,6 +160,7 @@ def _css() -> None:
         }
         .console-grid {
           position: relative;
+          z-index: 1;
           display: grid;
           grid-template-columns: repeat(5, minmax(120px, 1fr));
           gap: 8px;
