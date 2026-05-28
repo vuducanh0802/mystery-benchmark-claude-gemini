@@ -1024,21 +1024,6 @@ def render_overview(index: dict[str, Any], matches: pd.DataFrame) -> None:
             st.markdown('<div class="panel-title">Culprit Signal</div>', unsafe_allow_html=True)
             render_rank_cards(c_main)
 
-    with st.container(border=True):
-        st.markdown('<div class="panel-title">Match Ledger</div>', unsafe_allow_html=True)
-        visible = matches.drop(columns=["trajectory_file"], errors="ignore")
-        st.dataframe(
-            visible,
-            hide_index=True,
-            width="stretch",
-            height=420,
-            column_config={
-                "detective_payoff": st.column_config.NumberColumn("detective_payoff", format="%.3f"),
-                "culprit_payoff": st.column_config.NumberColumn("culprit_payoff", format="%.3f"),
-            },
-        )
-
-
 def render_leaderboards(matches: pd.DataFrame) -> None:
     d_df = _role_leaderboard_df(matches, role="detective", baselines=False)
     c_df = _role_leaderboard_df(matches, role="culprit", baselines=False)
