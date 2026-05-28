@@ -1,11 +1,11 @@
 ---
-title: MysteryArena Arena
+title: MysteryArena
 sdk: docker
 app_port: 7860
 pinned: false
 ---
 
-# MysteryArena Arena
+# MysteryArena
 
 Full-stack MysteryArena Space:
 

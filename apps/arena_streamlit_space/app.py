@@ -22,6 +22,21 @@ DEFAULT_BASE_URL = os.environ.get("ARENA_DATASET_BASE_URL", "").rstrip("/")
 DEFAULT_MATCHES_FILE = "matches/all_matches.jsonl.gz"
 DETECTIVE_BASELINES = {"heuristic", "oracle_min", "oracle_max"}
 CULPRIT_BASELINES = {"passive"}
+MODEL_DISPLAY_NAMES = {
+    "deepseek-v4-pro": "DeepSeek V4 Pro",
+    "glm-4.7": "GLM 4.7",
+    "glm-5": "GLM 5",
+    "glm-5.1": "GLM 5.1",
+    "gpt-5.4": "GPT 5.4",
+    "gpt-5.4-ptu": "GPT 5.4",
+    "gpt-5.5": "GPT 5.5",
+    "heuristic": "Heuristic",
+    "kimi-k2.5": "Kimi K2.5",
+    "minimax-m2.7": "MiniMax M2.7",
+    "oracle_min": "Oracle Min",
+    "oracle_max": "Oracle Max",
+    "passive": "Passive",
+}
 
 
 st.set_page_config(
@@ -303,6 +318,36 @@ def _pct(value: Any) -> str:
     return f"{_safe_float(value):.1%}"
 
 
+def _display_model_name(value: Any) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    key = raw.lower()
+    if key in MODEL_DISPLAY_NAMES:
+        return MODEL_DISPLAY_NAMES[key]
+
+    normalized = []
+    for part in (p for p in re.split(r"[-_]+", raw) if p):
+        lower = part.lower()
+        if lower in {"gpt", "glm"}:
+            normalized.append(lower.upper())
+        elif lower == "ptu":
+            continue
+        elif lower == "deepseek":
+            normalized.append("DeepSeek")
+        elif lower == "kimi":
+            normalized.append("Kimi")
+        elif lower == "minimax":
+            normalized.append("MiniMax")
+        elif re.fullmatch(r"[a-z]+\d+(?:\.\d+)?", lower):
+            normalized.append(part.upper())
+        else:
+            normalized.append(part[:1].upper() + part[1:])
+    return " ".join(normalized) or raw
+
+
 def _resolve_url(repo_id: str, revision: str, path: str, base_url: str = "") -> str:
     if base_url:
         clean_path = quote(path.lstrip("/"), safe="/")
@@ -352,11 +397,13 @@ def _matches_df(matches: list[dict[str, Any]]) -> pd.DataFrame:
     for match in matches:
         detective = match.get("detective") or {}
         culprit = match.get("culprit") or {}
+        detective_name = detective.get("name")
+        culprit_name = culprit.get("name")
         rows.append({
             "run_id": match.get("run_id"),
             "match_id": match.get("match_id"),
-            "detective": detective.get("name"),
-            "culprit": culprit.get("name"),
+            "detective": _display_model_name(detective_name),
+            "culprit": _display_model_name(culprit_name),
             "level": match.get("level"),
             "seed": match.get("seed"),
             "detective_payoff": match.get("detective_payoff"),
@@ -469,10 +516,10 @@ def _role_rank_matches(matches: pd.DataFrame, *, role: str, baselines: bool) -> 
         return matches
     if role == "detective":
         model_col = "detective"
-        baseline_names = DETECTIVE_BASELINES
+        baseline_names = {_display_model_name(name) for name in DETECTIVE_BASELINES}
     else:
         model_col = "culprit"
-        baseline_names = CULPRIT_BASELINES
+        baseline_names = {_display_model_name(name) for name in CULPRIT_BASELINES}
     model_names = matches.get(model_col, pd.Series(dtype=str)).fillna("").astype(str)
     mask = model_names.isin(baseline_names)
     return matches[mask] if baselines else matches[~mask]
@@ -925,12 +972,13 @@ def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
     st.iframe(f"data:text/html;base64,{encoded}", height=650)
 
 
-def render_rank_cards(df: pd.DataFrame, *, value_col: str = "mean_payoff", limit: int = 6) -> None:
+def render_rank_cards(df: pd.DataFrame, *, value_col: str = "mean_payoff", limit: int | None = None) -> None:
     if df.empty:
         st.info("No leaderboard rows.")
         return
     cards = []
-    for _, row in df.head(limit).iterrows():
+    visible = df if limit is None else df.head(limit)
+    for _, row in visible.iterrows():
         score = _safe_float(row.get(value_col))
         width = max(4, min(100, score * 100))
         cards.append(
@@ -998,12 +1046,12 @@ def render_leaderboards(matches: pd.DataFrame) -> None:
     with left:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Detective Leaderboard</div>', unsafe_allow_html=True)
-            render_rank_cards(d_df, limit=8)
+            render_rank_cards(d_df)
             st.dataframe(d_df, hide_index=True, width="stretch", height=360)
     with right:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Culprit Leaderboard</div>', unsafe_allow_html=True)
-            render_rank_cards(c_df, limit=8)
+            render_rank_cards(c_df)
             st.dataframe(c_df, hide_index=True, width="stretch", height=360)
 
 
@@ -1014,12 +1062,12 @@ def render_baselines(matches: pd.DataFrame) -> None:
     with left:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Detective Baselines</div>', unsafe_allow_html=True)
-            render_rank_cards(d_df, limit=8)
+            render_rank_cards(d_df)
             st.dataframe(d_df, hide_index=True, width="stretch", height=360)
     with right:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Culprit Baselines</div>', unsafe_allow_html=True)
-            render_rank_cards(c_df, limit=8)
+            render_rank_cards(c_df)
             st.dataframe(c_df, hide_index=True, width="stretch", height=360)
 
 
