@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from arena.aggregate import aggregate_matches, load_matches
-from arena.metrics import read_jsonl
+from arena.metrics import read_jsonl, recompute_match_payoffs
 
 
 SCHEMA_VERSION = 1
@@ -155,7 +155,7 @@ def _public_match(
     *,
     trajectory_file: str | None,
 ) -> dict[str, Any]:
-    public = _redact(copy.deepcopy(match))
+    public = _redact(copy.deepcopy(recompute_match_payoffs(match)))
     public.pop("trajectory_path", None)
     if public.get("error"):
         public["error"] = _brief_error(public.get("error"))
@@ -301,19 +301,22 @@ def _merge_public_matches(
     current_matches: list[dict[str, Any]],
     *,
     current_run_id: str,
+    existing_run_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for match in existing_matches:
         run_id = str(match.get("run_id") or "")
+        if existing_run_ids is not None and run_id not in existing_run_ids:
+            continue
         if run_id == current_run_id:
             continue
         match_id = str(match.get("match_id") or "")
-        by_key[(run_id, match_id)] = match
+        by_key[(run_id, match_id)] = recompute_match_payoffs(match)
     for match in current_matches:
         run_id = str(match.get("run_id") or current_run_id)
         match_id = str(match.get("match_id") or "")
         match["run_id"] = run_id
-        by_key[(run_id, match_id)] = match
+        by_key[(run_id, match_id)] = recompute_match_payoffs(match)
     return sorted(by_key.values(), key=_match_sort_key)
 
 
@@ -372,6 +375,15 @@ def package_run_for_hf(
         existing_matches or [],
         public_matches,
         current_run_id=run_id,
+        existing_run_ids=(
+            {
+                str(item.get("run_id"))
+                for item in existing_runs
+                if item.get("run_id")
+            }
+            if existing_runs is not None
+            else None
+        ),
     )
     all_matches_rel = ALL_MATCHES_FILE
     _write_jsonl_gz(root / all_matches_rel, all_matches)

@@ -20,10 +20,12 @@ DEFAULT_REPO = os.environ.get("ARENA_DATASET_REPO", "org/mystery-arena-results")
 DEFAULT_REVISION = os.environ.get("ARENA_DEFAULT_REVISION", "main")
 DEFAULT_BASE_URL = os.environ.get("ARENA_DATASET_BASE_URL", "").rstrip("/")
 DEFAULT_MATCHES_FILE = "matches/all_matches.jsonl.gz"
+DETECTIVE_BASELINES = {"heuristic", "oracle_min", "oracle_max"}
+CULPRIT_BASELINES = {"passive"}
 
 
 st.set_page_config(
-    page_title="MysteryArena Arena",
+    page_title="MysteryArena",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -462,6 +464,25 @@ def _global_outputs(matches: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _role_rank_matches(matches: pd.DataFrame, *, role: str, baselines: bool) -> pd.DataFrame:
+    if matches.empty:
+        return matches
+    if role == "detective":
+        model_col = "detective"
+        baseline_names = DETECTIVE_BASELINES
+    else:
+        model_col = "culprit"
+        baseline_names = CULPRIT_BASELINES
+    model_names = matches.get(model_col, pd.Series(dtype=str)).fillna("").astype(str)
+    mask = model_names.isin(baseline_names)
+    return matches[mask] if baselines else matches[~mask]
+
+
+def _role_leaderboard_df(matches: pd.DataFrame, *, role: str, baselines: bool = False) -> pd.DataFrame:
+    ranked_matches = _role_rank_matches(matches, role=role, baselines=baselines)
+    return _global_leaderboard(ranked_matches, role=role)
+
+
 def _runs_df(index: dict[str, Any]) -> pd.DataFrame:
     rows = []
     for item in index.get("runs", []):
@@ -477,9 +498,10 @@ def _runs_df(index: dict[str, Any]) -> pd.DataFrame:
 
 
 def render_branding(_index: dict[str, Any], _matches: pd.DataFrame) -> None:
-    outputs = _global_outputs(_matches)
-    best_d = (outputs.get("detective_leaderboard") or [{}])[0].get("model")
-    best_c = (outputs.get("culprit_leaderboard") or [{}])[0].get("model")
+    d_main = _role_leaderboard_df(_matches, role="detective", baselines=False)
+    c_main = _role_leaderboard_df(_matches, role="culprit", baselines=False)
+    best_d = d_main.iloc[0]["model"] if not d_main.empty else None
+    best_c = c_main.iloc[0]["model"] if not c_main.empty else None
     total_matches = sum(
         int(item.get("matches") or 0)
         for item in _index.get("runs", [])
@@ -932,6 +954,8 @@ def render_overview(index: dict[str, Any], matches: pd.DataFrame) -> None:
     counts = outputs.get("summary", {})
     solve_rate = float(matches["solved"].mean()) if not matches.empty and "solved" in matches else 0.0
     avg_actions = float(matches["actions"].dropna().mean()) if not matches.empty else 0.0
+    d_main = _role_leaderboard_df(matches, role="detective", baselines=False)
+    c_main = _role_leaderboard_df(matches, role="culprit", baselines=False)
 
     cols = st.columns(7)
     cols[0].metric("Matches", _metric_value(counts.get("matches", len(matches))))
@@ -946,11 +970,11 @@ def render_overview(index: dict[str, Any], matches: pd.DataFrame) -> None:
     with left:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Detective Signal</div>', unsafe_allow_html=True)
-            render_rank_cards(_leaderboard_df(outputs.get("detective_leaderboard", [])))
+            render_rank_cards(d_main)
     with mid:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Culprit Signal</div>', unsafe_allow_html=True)
-            render_rank_cards(_leaderboard_df(outputs.get("culprit_leaderboard", [])))
+            render_rank_cards(c_main)
 
     with st.container(border=True):
         st.markdown('<div class="panel-title">Match Ledger</div>', unsafe_allow_html=True)
@@ -968,9 +992,8 @@ def render_overview(index: dict[str, Any], matches: pd.DataFrame) -> None:
 
 
 def render_leaderboards(matches: pd.DataFrame) -> None:
-    outputs = _global_outputs(matches)
-    d_df = _leaderboard_df(outputs.get("detective_leaderboard", []))
-    c_df = _leaderboard_df(outputs.get("culprit_leaderboard", []))
+    d_df = _role_leaderboard_df(matches, role="detective", baselines=False)
+    c_df = _role_leaderboard_df(matches, role="culprit", baselines=False)
     left, right = st.columns(2)
     with left:
         with st.container(border=True):
@@ -980,6 +1003,22 @@ def render_leaderboards(matches: pd.DataFrame) -> None:
     with right:
         with st.container(border=True):
             st.markdown('<div class="panel-title">Culprit Leaderboard</div>', unsafe_allow_html=True)
+            render_rank_cards(c_df, limit=8)
+            st.dataframe(c_df, hide_index=True, width="stretch", height=360)
+
+
+def render_baselines(matches: pd.DataFrame) -> None:
+    d_df = _role_leaderboard_df(matches, role="detective", baselines=True)
+    c_df = _role_leaderboard_df(matches, role="culprit", baselines=True)
+    left, right = st.columns(2)
+    with left:
+        with st.container(border=True):
+            st.markdown('<div class="panel-title">Detective Baselines</div>', unsafe_allow_html=True)
+            render_rank_cards(d_df, limit=8)
+            st.dataframe(d_df, hide_index=True, width="stretch", height=360)
+    with right:
+        with st.container(border=True):
+            st.markdown('<div class="panel-title">Culprit Baselines</div>', unsafe_allow_html=True)
             render_rank_cards(c_df, limit=8)
             st.dataframe(c_df, hide_index=True, width="stretch", height=360)
 
@@ -1502,9 +1541,10 @@ def main() -> None:
     with brand_slot:
         render_branding(index, filtered_matches)
 
-    overview, leaderboards, matrix, replay, api_docs = st.tabs([
+    overview, leaderboards, baselines, matrix, replay, api_docs = st.tabs([
         "Overview",
         "Leaderboards",
+        "Baselines",
         "Duel Matrix",
         "Episode Replay",
         "API Docs",
@@ -1513,6 +1553,8 @@ def main() -> None:
         render_overview(index, filtered_matches)
     with leaderboards:
         render_leaderboards(filtered_matches)
+    with baselines:
+        render_baselines(filtered_matches)
     with matrix:
         render_matrix(filtered_matches)
     with replay:
