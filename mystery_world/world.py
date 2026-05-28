@@ -433,6 +433,15 @@ class MysteryEnvironment:
     def _is_body_object(self, obj: WorldObject) -> bool:
         return _normalized_name(obj.name).startswith("body of ")
 
+    def _actor_is_culprit(self, actor_id: str) -> bool:
+        char = self._state.characters.get(actor_id)
+        return bool(char and char.is_culprit)
+
+    def _can_actor_take_object(self, actor_id: str, obj: WorldObject) -> bool:
+        if not obj.portable:
+            return False
+        return not (self._actor_is_culprit(actor_id) and obj.evidence_id)
+
     def observe_location(self, actor_id: str | None = None) -> str:
         """Return a natural-language description of the current location."""
         actor_id = actor_id or self._active_actor_id
@@ -492,7 +501,7 @@ class MysteryEnvironment:
             parts.append(f"Exit leads to {', '.join(adj_names)}.")
         talk_targets = [c.full_name for c in chars_here]
         examine_targets = [o.name for o in visible]
-        take_targets = [o.name for o in visible if o.portable]
+        take_targets = [o.name for o in visible if self._can_actor_take_object(actor_id, o)]
         target_lines = [
             f"MOVE: {', '.join(adj_names) if adj_names else 'none'}",
             f"TALK_TO: {', '.join(talk_targets) if talk_targets else 'none'}",
@@ -1151,6 +1160,8 @@ class MysteryEnvironment:
             obj = self._state.objects.get(oid)
             if obj and self._object_matches_query(obj, object_name):
                 if not obj.portable:
+                    return ActionResult(False, f"The {obj.name} cannot be taken.")
+                if self._actor_is_culprit(actor_id) and obj.evidence_id:
                     return ActionResult(False, f"The {obj.name} cannot be taken.")
                 loc.objects_here.remove(oid)
                 self._actor_inventory(actor_id).append(oid)
