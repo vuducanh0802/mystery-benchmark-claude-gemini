@@ -119,6 +119,35 @@ def culprit_payoff(summary: dict[str, Any], metrics: dict[str, Any] | None = Non
     return 1.0 - _clamp01(exposure)
 
 
+# Scaling for the baseline-relative culprit leaderboard score. Raw degradation
+# (passive detective payoff minus this culprit's) is typically small; alpha maps
+# a "tries but mediocre" culprit to ~0.3-0.4 with headroom above. Tune once real
+# culprit runs land.
+CULPRIT_DEGRADATION_ALPHA = 2.0
+
+
+def culprit_degradation_payoff(
+    detective_payoff_value: float,
+    passive_detective_payoff: float | None,
+    *,
+    alpha: float = CULPRIT_DEGRADATION_ALPHA,
+) -> float | None:
+    """Baseline-relative culprit skill in [0, 1].
+
+    Measures how far this culprit drove the detective's payoff *below* the
+    passive-culprit baseline on the same (detective, level, seed) case, scaled
+    by ``alpha`` and clamped. The passive culprit is the baseline, so it scores
+    0 by construction — this rewards demonstrated interference, not merely a
+    weak opposing detective (the flaw of the raw exposure payoff).
+
+    Returns None when no passive baseline exists for the case (unmeasurable).
+    """
+    if passive_detective_payoff is None:
+        return None
+    drop = float(passive_detective_payoff) - float(detective_payoff_value)
+    return max(0.0, min(1.0, alpha * drop))
+
+
 def recompute_match_payoffs(match: dict[str, Any]) -> dict[str, Any]:
     """Return a match copy with current payoff semantics applied."""
     normalized = dict(match)

@@ -245,8 +245,8 @@ def _role_gap_html(outputs: dict[str, Any]) -> str:
     names = sorted(set(d_rows) & set(c_rows))
     if not names:
         return "<p>No model appears in both roles yet.</p>"
-    d_vals = [float(d_rows[n].get("mean_payoff", 0.0)) for n in names]
-    c_vals = [float(c_rows[n].get("mean_payoff", 0.0)) for n in names]
+    d_vals = [float(d_rows[n].get("mean_payoff") or 0.0) for n in names]
+    c_vals = [float(c_rows[n].get("mean_payoff") or 0.0) for n in names]
     width, height, pad = 620, 420, 50
 
     def scale_x(x: float) -> float:
