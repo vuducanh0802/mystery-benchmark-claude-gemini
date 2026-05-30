@@ -179,8 +179,9 @@ def check_solvability(state: WorldState) -> dict[str, Any]:
 
 
 def check_locard_solvability(state: WorldState) -> dict[str, Any]:
-    """Verify the Locard triangle is closable: each edge has at least one
-    discoverable fresh evidence pointing to the correct entities."""
+    """Verify the Locard triangle is closable from ANCHORED evidence alone:
+    each edge has at least one discoverable, fresh, non-portable trace pointing
+    to the correct entities — proof the culprit cannot carry off."""
     issues: list[str] = []
     murder_ts = state.murder_timestamp
     threshold = state.freshness_threshold
@@ -189,6 +190,8 @@ def check_locard_solvability(state: WorldState) -> dict[str, Any]:
         found = False
         for ev in state.evidence.values():
             if ev.is_red_herring or ev.state == EvidenceState.DESTROYED or ev.discovery_difficulty >= 1.0:
+                continue
+            if not ev.anchored:
                 continue
             if ev.relevance is None or ev.relevance.edge_type != edge:
                 continue

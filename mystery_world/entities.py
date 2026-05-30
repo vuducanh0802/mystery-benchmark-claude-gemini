@@ -297,6 +297,7 @@ class Evidence:
     examine_attempts: int = 0          # runtime: how many times EXAMINE rolled on this (decay index)
     weather_sensitive: bool = False     # degrades faster in bad weather
     is_reliable: bool = True           # for testimonial evidence; False = contains inaccuracies
+    anchored: bool = False             # True = location/body-bound trace the culprit cannot carry off
     created_at_step: int = 0
     degraded_at_step: int | None = None
     # --- Locard triangle ---
@@ -333,6 +334,7 @@ class WorldObject:
     is_murder_weapon: bool = False
     portable: bool = True
     evidence_id: str | None = None  # linked evidence if any
+    weapon_class: str = ""          # forensic class for weapons (blade/blunt/ligature/firearm/poison)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)

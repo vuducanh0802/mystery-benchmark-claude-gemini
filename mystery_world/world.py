@@ -27,6 +27,7 @@ from mystery_world.entities import (
     EdgeType,
     Evidence,
     EvidenceState,
+    EvidenceType,
     Location,
     RouteConstraint,
     ScoreResult,
@@ -438,9 +439,11 @@ class MysteryEnvironment:
         return bool(char and char.is_culprit)
 
     def _can_actor_take_object(self, actor_id: str, obj: WorldObject) -> bool:
-        if not obj.portable:
-            return False
-        return not (self._actor_is_culprit(actor_id) and obj.evidence_id)
+        # Any actor may take any portable object — including the culprit taking
+        # evidence-bearing objects. Solvability is guaranteed by the anchored
+        # (non-portable) trace floor, so hiding portable clues only raises the
+        # cost of solving; it can never make the case unsolvable.
+        return obj.portable
 
     def observe_location(self, actor_id: str | None = None) -> str:
         """Return a natural-language description of the current location."""
@@ -1161,15 +1164,57 @@ class MysteryEnvironment:
             if obj and self._object_matches_query(obj, object_name):
                 if not obj.portable:
                     return ActionResult(False, f"The {obj.name} cannot be taken.")
-                if self._actor_is_culprit(actor_id) and obj.evidence_id:
-                    return ActionResult(False, f"The {obj.name} cannot be taken.")
                 loc.objects_here.remove(oid)
                 self._actor_inventory(actor_id).append(oid)
                 obj.location_id = f"inventory:{actor_id}"
                 if obj.evidence_id and obj.evidence_id in self._state.evidence:
                     self._state.evidence[obj.evidence_id].location_id = obj.location_id
+                # Removing an evidence object is tampering: it leaves an anchored
+                # disturbance the culprit cannot also carry off. This both keeps
+                # the act discoverable and reinforces the SUSPECT_ROOM edge, so
+                # hiding is a real but self-incriminating lever.
+                if obj.evidence_id and self._actor_is_culprit(actor_id):
+                    self._stamp_tamper_trace(actor_id, loc, obj)
                 return ActionResult(True, f"You take the {obj.name}.")
         return ActionResult(False, f"No object called '{object_name}' here.")
+
+    def _stamp_tamper_trace(self, actor_id: str, loc: Location, obj: WorldObject) -> None:
+        """Leave an anchored, location-bound trace recording that an evidence
+        object was removed from this room by the culprit. Hosted on a fixed
+        (non-portable) scene feature so the detective can discover it by
+        examining the disturbance, and so it counts as anchored proof."""
+        char = self._state.characters.get(actor_id)
+        build = char.physical_traits.build if char else "an unidentified"
+        trace = Evidence(
+            name=f"disturbance where the {obj.name} was",
+            evidence_type=EvidenceType.PHYSICAL,
+            location_id=loc.id,
+            linked_character_id=actor_id,
+            description=(
+                f"The {obj.name} is gone from here. Fresh {build}-sized scuff marks "
+                f"show someone removed it in haste."
+            ),
+            discovery_difficulty=0.0,
+            anchored=True,
+            created_at_step=self._state.current_step,
+            relevance=EdgeRelevance(
+                edge_type=EdgeType.SUSPECT_ROOM,
+                subject_ids=[actor_id, loc.id],
+                contact_timestamp=self._state.murder_timestamp,
+                surface_label=TemporalLabel.AMBIGUOUS,
+            ),
+        )
+        self._state.evidence[trace.id] = trace
+        host = WorldObject(
+            name=f"disturbed spot where the {obj.name} stood",
+            description="The objects here have been hastily shifted aside.",
+            location_id=loc.id,
+            portable=False,
+            evidence_id=trace.id,
+        )
+        self._state.objects[host.id] = host
+        if host.id not in loc.objects_here:
+            loc.objects_here.append(host.id)
 
 
     # ------------------------------------------------------------------

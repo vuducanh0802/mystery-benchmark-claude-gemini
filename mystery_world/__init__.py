@@ -423,3 +423,98 @@ class AssetPool:
         "hands with a faint smell of sulphur from match-work",
     ])
 DEFAULT_ASSET_POOL = AssetPool()
+
+
+# ---------------------------------------------------------------------------
+# Weapon forensic signatures
+# ---------------------------------------------------------------------------
+# Every murder weapon, whatever its name, belongs to a forensic *class*. The
+# class determines the wound stamped on the (non-portable) body and the
+# impression left at the (non-portable) scene. Those traces are ANCHORED: the
+# culprit can carry off the weapon object, but cannot remove the wound or the
+# scene impression. This is what keeps the WEAPON edge of the Locard triangle
+# closable even when the weapon itself has been hidden.
+
+WEAPON_BLADE = "blade"
+WEAPON_BLUNT = "blunt"
+WEAPON_LIGATURE = "ligature"
+WEAPON_FIREARM = "firearm"
+WEAPON_POISON = "poison"
+
+WEAPON_CLASS_ORDER = (
+    WEAPON_BLADE, WEAPON_BLUNT, WEAPON_LIGATURE, WEAPON_FIREARM, WEAPON_POISON,
+)
+
+# Default-pool weapon name -> forensic class.
+WEAPON_CLASSES: dict[str, str] = {
+    "ornate letter opener": WEAPON_BLADE,
+    "gardening shears": WEAPON_BLADE,
+    "kitchen cleaver": WEAPON_BLADE,
+    "brass candlestick": WEAPON_BLUNT,
+    "crystal decanter": WEAPON_BLUNT,
+    "iron fireplace poker": WEAPON_BLUNT,
+    "marble bookend": WEAPON_BLUNT,
+    "heavy statuette": WEAPON_BLUNT,
+    "silk scarf": WEAPON_LIGATURE,
+    "coil of rope": WEAPON_LIGATURE,
+    "antique revolver": WEAPON_FIREARM,
+    "poison vial": WEAPON_POISON,
+}
+
+# class -> wound morphology, stamped into the (non-portable) body description.
+WOUND_BY_CLASS: dict[str, str] = {
+    WEAPON_BLADE: "a single deep, narrow puncture wound with clean edges, consistent with a thin blade",
+    WEAPON_BLUNT: "blunt-force trauma — a heavy, rounded impact fracture",
+    WEAPON_LIGATURE: "ligature marks around the throat, consistent with strangulation by a cord or cloth",
+    WEAPON_FIREARM: "a gunshot wound ringed with powder burns",
+    WEAPON_POISON: "no external trauma; discolouration and frothing consistent with poisoning",
+}
+
+# class -> impression left at the murder location (an anchored, non-portable trace).
+SCENE_IMPRESSION_BY_CLASS: dict[str, str] = {
+    WEAPON_BLADE: "a thin, bloodied outline on the surface where a narrow blade was set down",
+    WEAPON_BLUNT: "a heavy circular dent and radiating spatter where a blunt object struck",
+    WEAPON_LIGATURE: "stray fibres and a faint friction burn where a cord was looped and pulled",
+    WEAPON_FIREARM: "a powder scorch and a projectile gouged into the wall",
+    WEAPON_POISON: "a sharp chemical residue pooled around an overturned glass",
+}
+
+_WEAPON_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    (WEAPON_BLADE, ("knife", "blade", "opener", "cleaver", "shears",
+                    "dagger", "scalpel", "razor", "sword", "saber", "sabre")),
+    (WEAPON_LIGATURE, ("rope", "scarf", "cord", "wire", "garrote", "garrotte",
+                       "chain", "belt", "stocking", "cable", "noose")),
+    (WEAPON_FIREARM, ("revolver", "pistol", "gun", "rifle", "firearm", "shotgun", "musket")),
+    (WEAPON_POISON, ("poison", "vial", "toxin", "venom", "arsenic", "cyanide")),
+    (WEAPON_BLUNT, ("candlestick", "poker", "bookend", "statuette", "decanter",
+                    "bat", "hammer", "wrench", "pipe", "club", "bottle", "rock",
+                    "brick", "mallet", "iron", "trophy")),
+]
+
+
+def classify_weapon(name: str, overrides: dict[str, str] | None = None) -> str:
+    """Map a weapon name to a forensic class.
+
+    Looks up the explicit override, then the default-pool table, then falls
+    back to keyword inference so arbitrary/custom weapon names still classify.
+    Defaults to blunt-force when nothing matches.
+    """
+    if overrides and name in overrides:
+        return overrides[name]
+    if name in WEAPON_CLASSES:
+        return WEAPON_CLASSES[name]
+    low = name.lower()
+    for weapon_class, keywords in _WEAPON_KEYWORDS:
+        if any(kw in low for kw in keywords):
+            return weapon_class
+    return WEAPON_BLUNT
+
+
+def wound_for_weapon(name: str, overrides: dict[str, str] | None = None) -> str:
+    """Wound description left on the body by the given weapon (anchored trace)."""
+    return WOUND_BY_CLASS[classify_weapon(name, overrides)]
+
+
+def scene_impression_for_weapon(name: str, overrides: dict[str, str] | None = None) -> str:
+    """Impression the given weapon leaves at the scene (anchored trace)."""
+    return SCENE_IMPRESSION_BY_CLASS[classify_weapon(name, overrides)]
