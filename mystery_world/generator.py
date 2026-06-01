@@ -23,7 +23,14 @@ from typing import Any
 
 import numpy as np
 
-from mystery_world import AssetPool, ComplexityConfig, DEFAULT_ASSET_POOL
+from mystery_world import (
+    AssetPool,
+    ComplexityConfig,
+    DEFAULT_ASSET_POOL,
+    classify_weapon,
+    scene_impression_for_weapon,
+    wound_for_weapon,
+)
 from mystery_world.entities import (
     AlibiClaim,
     Character,
@@ -333,12 +340,19 @@ def _generate_evidence_and_objects(
         return _pick_surface_label(ts, murder_ts, threshold, config)
 
     # --- Murder weapon object ---
-    weapon_names = list(rng.choice(
-        pool.weapon_templates,
-        size=min(config.num_weapons, len(pool.weapon_templates)),
-        replace=False,
-    ))
-    murder_weapon_name = str(weapon_names[0])
+    # The murder weapon's forensic class must be UNIQUE among the candidate
+    # lineup, so the (non-portable) wound it leaves on the body identifies the
+    # weapon even after the culprit hides the object. Pick the murder weapon
+    # first, then fill the remaining slots from other classes.
+    n_weapons = min(config.num_weapons, len(pool.weapon_templates))
+    all_weapons = [str(w) for w in pool.weapon_templates]
+    murder_weapon_name = str(rng.choice(all_weapons))
+    murder_weapon_class = classify_weapon(murder_weapon_name)
+    other_pool = [w for w in all_weapons
+                  if w != murder_weapon_name
+                  and classify_weapon(w) != murder_weapon_class]
+    rng.shuffle(other_pool)
+    weapon_names = [murder_weapon_name] + other_pool[: max(0, n_weapons - 1)]
     if config.culprit_tamper_prob > 0.0 and len(location_ids) > 1:
         weapon_loc_id = str(rng.choice([l for l in location_ids if l != murder_location_id]))
     else:
@@ -348,8 +362,15 @@ def _generate_evidence_and_objects(
         id=murder_weapon_id, name=murder_weapon_name,
         description=f"A {murder_weapon_name}.",
         location_id=weapon_loc_id, is_weapon=True, is_murder_weapon=True,
+        weapon_class=murder_weapon_class,
     )
     objects[murder_weapon_id] = mw_obj
+
+    # Floor traces (the wound, the scene handprint, the scuffs) are the
+    # non-portable proof path; keep them reliably perceivable so solvability
+    # never hinges on a perception roll. The stochastic layer applies to the
+    # removable shortcut clues instead.
+    floor_difficulty = float(config.evidence_difficulty_min)
 
     # --- SUSPECT_WEAPON evidence (trait-based grip marks on weapon) ---
     # Primary piece always links to the culprit; ambiguity applies to extra pieces only.
@@ -376,6 +397,32 @@ def _generate_evidence_and_objects(
     evidence[mw_ev.id] = mw_ev
     mw_obj.evidence_id = mw_ev.id
 
+    # --- SUSPECT_WEAPON anchored carrier (scene handprint, non-portable) ---
+    # The grip marks above ride with the weapon object and can be hidden. This
+    # handprint is a fixed mark at the murder scene that cannot be carried off,
+    # so the suspect<->weapon edge stays closable even if the weapon is taken.
+    sw_anchor = Evidence(
+        id=_uid("ev", rng),
+        name=f"handprint beside where the {murder_weapon_name} lay",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=murder_location_id,
+        linked_character_id=culprit_id,
+        description=(
+            f"A smudged handprint from someone with {mw_traits.hands}, pressed into the "
+            f"surface right where the {murder_weapon_name} was set down."
+        ),
+        discovery_difficulty=floor_difficulty,
+        weather_sensitive=bool(murder_loc and murder_loc.weather_exposed),
+        anchored=True,
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.SUSPECT_WEAPON,
+            subject_ids=[culprit_id, murder_weapon_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
+    )
+    evidence[sw_anchor.id] = sw_anchor
+
     # --- WEAPON_VICTIM evidence (victim blood on weapon) ---
     wv_ev = Evidence(
         id=_uid("ev", rng),
@@ -394,6 +441,50 @@ def _generate_evidence_and_objects(
     )
     evidence[wv_ev.id] = wv_ev
 
+    # --- WEAPON_VICTIM anchored carrier: the wound (on the non-portable body) ---
+    # The blood above rides with the weapon. The wound is stamped on the body
+    # and reads off the weapon's forensic class, so the weapon<->victim edge —
+    # and the weapon's identity — survive the weapon being hidden. This
+    # evidence is re-homed onto the body object during world assembly.
+    victim_name = characters[victim_id].full_name if victim_id in characters else "the victim"
+    wound_ev = Evidence(
+        id=_uid("ev", rng),
+        name=f"wound on {victim_name}",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=murder_location_id,
+        linked_character_id=victim_id,
+        description=f"The fatal injury is {wound_for_weapon(murder_weapon_name)}.",
+        discovery_difficulty=floor_difficulty,
+        anchored=True,
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.WEAPON_VICTIM,
+            subject_ids=[murder_weapon_id, victim_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
+    )
+    evidence[wound_ev.id] = wound_ev
+
+    # --- WEAPON_VICTIM anchored carrier: scene impression (non-portable) ---
+    impression_ev = Evidence(
+        id=_uid("ev", rng),
+        name=f"impression in the {murder_loc.name if murder_loc else 'scene'}",
+        evidence_type=EvidenceType.PHYSICAL,
+        location_id=murder_location_id,
+        linked_character_id=victim_id,
+        description=f"At the scene: {scene_impression_for_weapon(murder_weapon_name)}.",
+        discovery_difficulty=floor_difficulty,
+        weather_sensitive=bool(murder_loc and murder_loc.weather_exposed),
+        anchored=True,
+        relevance=EdgeRelevance(
+            edge_type=EdgeType.WEAPON_VICTIM,
+            subject_ids=[murder_weapon_id, victim_id],
+            contact_timestamp=murder_ts,
+            surface_label=_label(murder_ts),
+        ),
+    )
+    evidence[impression_ev.id] = impression_ev
+
     # --- SUSPECT_ROOM evidence (culprit footprint in murder room) ---
     culprit_traits = _traits(culprit_id)
     murder_loc_name = murder_loc.name if murder_loc else "crime scene"
@@ -404,7 +495,8 @@ def _generate_evidence_and_objects(
         location_id=murder_location_id,
         linked_character_id=culprit_id,
         description=f"Shoe prints from a {culprit_traits.build} person found in the room.",
-        discovery_difficulty=_sample_difficulty(),
+        discovery_difficulty=floor_difficulty,
+        anchored=True,
         relevance=EdgeRelevance(
             edge_type=EdgeType.SUSPECT_ROOM,
             subject_ids=[culprit_id, murder_location_id],
@@ -970,9 +1062,71 @@ def _assign_witnesses(
 # ---------------------------------------------------------------------------
 # Solvability verification
 # ---------------------------------------------------------------------------
+def _compute_anchored(
+    evidence: dict[str, Evidence], objects: dict[str, WorldObject]
+) -> None:
+    """Set ``Evidence.anchored``: a trace is anchored (non-removable) unless it
+    is hosted on a portable object, in which case the culprit can carry it off.
+    Single source of truth, run over the fully assembled world."""
+    portable_hosts = {
+        o.evidence_id for o in objects.values() if o.portable and o.evidence_id
+    }
+    for ev in evidence.values():
+        ev.anchored = ev.id not in portable_hosts
+
+
+# Ground-truth subjects each triangle edge must connect.
+_TRIANGLE_REQUIRED_SUBJECTS: dict[EdgeType, tuple[str, str]] = {
+    EdgeType.SUSPECT_WEAPON: ("culprit_id", "murder_weapon_id"),
+    EdgeType.WEAPON_VICTIM: ("murder_weapon_id", "victim_id"),
+    EdgeType.SUSPECT_ROOM: ("culprit_id", "murder_location_id"),
+}
+
+
+def anchored_triangle_coverage(state: WorldState) -> dict[EdgeType, int]:
+    """Count anchored, usable, non-red-herring evidence covering each triangle
+    edge with the correct ground-truth subjects. This is the solvability floor:
+    proof the culprit cannot remove by taking objects."""
+    ids = {
+        "culprit_id": state.culprit_id,
+        "murder_weapon_id": state.murder_weapon_id,
+        "victim_id": state.victim_id,
+        "murder_location_id": state.murder_location_id,
+    }
+    coverage = {edge: 0 for edge in _TRIANGLE_REQUIRED_SUBJECTS}
+    for ev in state.evidence.values():
+        if not ev.anchored or ev.is_red_herring or not ev.is_usable():
+            continue
+        rel = ev.relevance
+        if rel is None or rel.edge_type not in _TRIANGLE_REQUIRED_SUBJECTS:
+            continue
+        required = _TRIANGLE_REQUIRED_SUBJECTS[rel.edge_type]
+        if all(ids[key] in rel.subject_ids for key in required):
+            coverage[rel.edge_type] += 1
+    return coverage
+
+
+def murder_weapon_class_unique(state: WorldState) -> bool:
+    """The murder weapon's forensic class must be unique among candidate
+    weapons, so the wound on the body identifies it unambiguously."""
+    mw = state.objects.get(state.murder_weapon_id)
+    if mw is None:
+        return False
+    mw_class = mw.weapon_class or classify_weapon(mw.name)
+    for obj in state.objects.values():
+        if obj.is_weapon and obj.id != state.murder_weapon_id:
+            if (obj.weapon_class or classify_weapon(obj.name)) == mw_class:
+                return False
+    return True
+
+
 def verify_solvability(state: WorldState) -> dict[str, Any]:
     """Check that the mystery is solvable: sufficient non-red-herring evidence
-    exists that points to the culprit, and alibis are consistent."""
+    exists that points to the culprit, and alibis are consistent.
+
+    The triangle must be closable from ANCHORED evidence alone — proof the
+    culprit cannot carry off — so the case stays solvable even if every
+    portable object is hidden."""
     culprit_evidence = [
         e for e in state.evidence.values()
         if e.linked_character_id == state.culprit_id
@@ -995,10 +1149,16 @@ def verify_solvability(state: WorldState) -> dict[str, Any]:
         not culprit.has_alibi or culprit.alibi_corroborator_id is None
     )
 
+    anchored_cov = anchored_triangle_coverage(state)
+    anchored_triangle_closed = all(count > 0 for count in anchored_cov.values())
+    weapon_class_unique = murder_weapon_class_unique(state)
+
     solvable = (
         len(culprit_evidence) >= 2
         and has_weapon_evidence
         and culprit_alibi_breakable
+        and anchored_triangle_closed
+        and weapon_class_unique
     )
 
     return {
@@ -1008,6 +1168,9 @@ def verify_solvability(state: WorldState) -> dict[str, Any]:
         "has_motive_evidence": has_motive_evidence,
         "has_testimonial": has_testimonial,
         "culprit_alibi_breakable": culprit_alibi_breakable,
+        "anchored_triangle_closed": anchored_triangle_closed,
+        "anchored_triangle_coverage": {e.name: c for e, c in anchored_cov.items()},
+        "weapon_class_unique": weapon_class_unique,
     }
 
 
@@ -1276,19 +1439,34 @@ def generate_mystery(
 
         body_obj_id = _uid("obj", rng)
         weapon_obj = objects.get(murder_weapon_id)
+        # The wound reads off the weapon's forensic class, so the cause of death
+        # names the weapon even when the weapon object has been hidden. Always
+        # visible in the body description (never gated by a perception roll).
+        wound_text = wound_for_weapon(weapon_obj.name) if weapon_obj else "an unidentified instrument"
         objects[body_obj_id] = WorldObject(
             id=body_obj_id,
             name=f"body of {victim.full_name}",
             description=(
                 f"The lifeless body of {victim.full_name}. "
-                f"Examining the wounds suggests the cause of death was "
-                f"inflicted by a sharp or heavy instrument."
+                f"Examining the wounds reveals {wound_text}."
             ),
             location_id=body_location_id,
             portable=False,
         )
-        # Link crime-scene evidence to the body object where possible
-        if body_location_id != murder_location_id:
+        # Host the anchored wound evidence on the (non-portable) body so it is
+        # discovered by examining the body, and travels with the body if it was
+        # moved. This is the WEAPON_VICTIM floor that cannot be carried off.
+        wound_ev = next(
+            (e for e in evidence.values()
+             if e.relevance and e.relevance.edge_type == EdgeType.WEAPON_VICTIM
+             and e.name.startswith("wound on")),
+            None,
+        )
+        if wound_ev is not None:
+            wound_ev.location_id = body_location_id
+            objects[body_obj_id].evidence_id = wound_ev.id
+        # Otherwise fall back to a moved crime-scene clue on the body.
+        elif body_location_id != murder_location_id:
             for eid, ev in cs_evidence.items():
                 if ev.location_id == body_location_id:
                     hosted = any(o.evidence_id == eid for o in objects.values())
@@ -1296,6 +1474,11 @@ def generate_mystery(
                         objects[body_obj_id].evidence_id = eid
                         break
         victim.location_id = body_location_id
+
+        # Anchored = the trace is not hosted on a portable object, so the
+        # culprit cannot carry it off. Single source of truth, computed over the
+        # fully assembled world.
+        _compute_anchored(evidence, objects)
 
         # 6. Alibis
         _generate_alibis(config, rng, characters, timeline, culprit.id, murder_step)
