@@ -9,7 +9,11 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from arena.metrics import recompute_match_payoffs
+from arena.metrics import (
+    CULPRIT_DEGRADATION_ALPHA,
+    culprit_degradation_payoff,
+    recompute_match_payoffs,
+)
 from arena.trueskill import compute_role_trueskill
 
 
@@ -72,15 +76,43 @@ def aggregate_matches(
     trueskill_tau: float = 25.0 / 300.0,
     trueskill_draw_threshold: float = 0.0,
 ) -> dict[str, Any]:
+    passive = _passive_baseline(matches)
+
+    def _match_degradation(match: dict[str, Any]) -> float | None:
+        """Scaled baseline-relative culprit payoff for one match, or None when
+        no passive baseline exists for its (detective, level, seed) case."""
+        if match.get("culprit", {}).get("name") == "passive":
+            return 0.0
+        key = (
+            match.get("detective", {}).get("name", ""),
+            str(match.get("level", "")),
+            int(match.get("seed", 0)),
+        )
+        return culprit_degradation_payoff(
+            float(match.get("detective_payoff", 0.0)), passive.get(key)
+        )
+
+    # TrueSkill duels compare detective payoff against the culprit's degradation
+    # so ratings agree with the leaderboard. Matches with no baseline are forced
+    # to a draw (culprit_payoff == detective_payoff) so they leave ratings
+    # unchanged rather than penalising either side.
+    ts_matches: list[dict[str, Any]] = []
+    for match in matches:
+        deg = _match_degradation(match)
+        augmented = dict(match)
+        augmented["culprit_payoff"] = (
+            deg if deg is not None else float(match.get("detective_payoff", 0.0))
+        )
+        ts_matches.append(augmented)
+
     ratings = compute_role_trueskill(
-        matches,
+        ts_matches,
         mu=trueskill_mu,
         sigma=trueskill_sigma,
         beta=trueskill_beta,
         tau=trueskill_tau,
         draw_threshold=trueskill_draw_threshold,
     )
-    passive = _passive_baseline(matches)
 
     by_detective: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_culprit: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -129,8 +161,13 @@ def aggregate_matches(
 
     culprit_rows = []
     for name, rows in by_culprit.items():
-        payoffs = [float(r.get("culprit_payoff", 0.0)) for r in rows]
-        ci_low, ci_high = _bootstrap_ci(payoffs, samples=bootstrap_samples, seed=23)
+        # Headline payoff: scaled degradation vs the passive baseline, over the
+        # cases where a baseline exists. Passive culprit scores 0 by definition.
+        degradations = [d for d in (_match_degradation(r) for r in rows) if d is not None]
+        ci_low, ci_high = _bootstrap_ci(degradations, samples=bootstrap_samples, seed=23)
+        mean_payoff = _avg(degradations) if degradations else None
+        # Diagnostics: the legacy exposure-based payoff and the raw (unscaled) drop.
+        evasion = [float(r.get("culprit_payoff", 0.0)) for r in rows]
         drops = []
         for r in rows:
             key = (
@@ -144,7 +181,11 @@ def aggregate_matches(
             "rank": 0,
             "model": name,
             "n": len(rows),
-            "mean_payoff": round(_avg(payoffs), 4),
+            "mean_payoff": round(mean_payoff, 4) if mean_payoff is not None else None,
+            "payoff_basis": "scaled_degradation_vs_passive",
+            "payoff_alpha": CULPRIT_DEGRADATION_ALPHA,
+            "n_with_baseline": len(degradations),
+            "evasion_rate": round(_avg(evasion), 4),
             "ci_low": round(ci_low, 4),
             "ci_high": round(ci_high, 4),
             "trueskill": ratings["culprit"].get(name, {
@@ -167,7 +208,11 @@ def aggregate_matches(
             "guard_blocked": round(_avg([float(r.get("guard_blocked_actions", 0) or 0) for r in rows]), 3),
         })
     culprit_rows.sort(
-        key=lambda r: (r["mean_payoff"], r["detective_failure_rate"], r["trueskill"]["skill"]),
+        key=lambda r: (
+            r["mean_payoff"] if r["mean_payoff"] is not None else -1.0,
+            r["detective_failure_rate"],
+            r["trueskill"]["skill"],
+        ),
         reverse=True,
     )
     for i, row in enumerate(culprit_rows, 1):
@@ -180,12 +225,13 @@ def aggregate_matches(
         c = match.get("culprit", {}).get("name", "unknown")
         grouped[(d, c)].append((
             float(match.get("detective_payoff", 0.0)),
-            float(match.get("culprit_payoff", 0.0)),
+            _match_degradation(match),
         ))
     for (detective, culprit), values in grouped.items():
+        culprit_vals = [v[1] for v in values if v[1] is not None]
         matrix[detective][culprit] = {
             "detective_payoff": round(_avg([value[0] for value in values]), 4),
-            "culprit_payoff": round(_avg([value[1] for value in values]), 4),
+            "culprit_payoff": round(_avg(culprit_vals), 4) if culprit_vals else None,
             "n": len(values),
         }
 
