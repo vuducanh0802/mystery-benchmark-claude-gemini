@@ -59,7 +59,7 @@ AGENT_CONFIGS = {
     },
     "gemini": {
         "provider": "google",
-        "model": "gemini-2.0-flash",
+        "model": "gemini-3.6-flash",
         "description": "Gemini 2.0 Flash via Google API (GOOGLE_API_KEY)",
     },
     "openrouter": {

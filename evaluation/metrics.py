@@ -82,6 +82,8 @@ class EpisodeMetrics:
 
     # --- Token cost ---
     total_tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
     tokens_per_action: float = 0.0
 
     # --- Action efficiency ---
@@ -115,6 +117,8 @@ class EpisodeMetrics:
             "evidence_discovered": self.evidence_discovered,
             "clue_efficiency": self.clue_efficiency,
             "total_tokens": self.total_tokens,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
             "tokens_per_action": self.tokens_per_action,
             "actions_used": self.actions_used,
             "action_budget": self.action_budget,
@@ -130,6 +134,9 @@ class EpisodeMetrics:
             "contradiction_found": self.contradiction_found,
             "contradiction_valid": self.contradiction_valid,
             "alibi_score": self.alibi_score,
+            "correct_eliminations": self.correct_eliminations,
+            "incorrect_eliminations": self.incorrect_eliminations,
+            "elimination_score": self.elimination_score,
             "composite_score": self.composite_score,
         }
 
@@ -140,6 +147,8 @@ def compute_episode_metrics(
     ground_truth: dict[str, Any],
     total_tokens: int,
     complexity_level: int = 1,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
 ) -> EpisodeMetrics:
     """
     Compute all metrics for a completed episode.
@@ -189,6 +198,8 @@ def compute_episode_metrics(
 
     # Token cost / action efficiency
     m.total_tokens = total_tokens
+    m.input_tokens = input_tokens
+    m.output_tokens = output_tokens
     m.actions_used = episode_summary.get("actions_taken", 0)
     m.action_budget = episode_summary.get("budget", 0)
     m.tokens_per_action = total_tokens / max(1, m.actions_used)

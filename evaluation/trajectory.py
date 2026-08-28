@@ -16,6 +16,7 @@ File contains one JSON object per line:
       "detective_agent": str,
       "detective_model": str | null,
       "detective_provider": str | null,
+      "detective_policy": str | null,
       "agent": str,                   # backward-compatible alias
       "model": str | null,            # backward-compatible alias
       "provider": str | null,         # backward-compatible alias
@@ -44,6 +45,11 @@ File contains one JSON object per line:
       "model_response": str | null,  # raw LLM text, when available
       "result_observation": str,     # rendered observation AFTER the action
       "success": bool,
+      "model_called": bool,
+      "input_tokens": int,
+      "output_tokens": int,
+      "proposed_action": str | null,
+      "guard_intervention": dict | null,
       "world_state_hash": str,       # sha256 of WorldState.to_dict() AFTER the action
       "timestamp": iso8601 str
     }
@@ -123,18 +129,26 @@ class TrajectoryWriter:
         arena_run_id: str | None = None,
         arena_match_id: str | None = None,
         instance_id: str = "",
+        benchmark_seed: int | None = None,
+        source_instance: str | None = None,
+        source_instance_sha256: str | None = None,
+        detective_policy: str | None = None,
+        experiment_id: str | None = None,
+        experiment_config_hash: str | None = None,
     ) -> None:
         cfg = state.config.to_dict()
         rec = {
             "kind": "header",
-            "schema_version": 1,
+            "schema_version": 2,
             "seed": state.seed,
+            "benchmark_seed": benchmark_seed if benchmark_seed is not None else state.seed,
             "level": level,
             "config": cfg,
             "config_hash": config_hash(cfg),
             "detective_agent": agent,
             "detective_model": model,
             "detective_provider": provider,
+            "detective_policy": detective_policy,
             "agent": agent,
             "model": model,
             "provider": provider,
@@ -149,6 +163,10 @@ class TrajectoryWriter:
             "git_sha": _git_sha(),
             "started_at": _now(),
             "instance_id": instance_id or f"seed_{state.seed}",
+            "source_instance": source_instance,
+            "source_instance_sha256": source_instance_sha256,
+            "experiment_id": experiment_id,
+            "experiment_config_hash": experiment_config_hash,
         }
         self._write(rec)
 
@@ -165,6 +183,12 @@ class TrajectoryWriter:
         post_state_hash: str,
         actor_id: str = "detective",
         role: str = "detective",
+        model_called: bool = True,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        proposed_action: str | None = None,
+        proposed_action_kwargs: dict | None = None,
+        guard_intervention: dict | None = None,
     ) -> None:
         self._write({
             "kind": "step",
@@ -178,6 +202,13 @@ class TrajectoryWriter:
             "result_observation": result_observation,
             "success": success,
             "world_state_hash": post_state_hash,
+            "model_called": model_called,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "proposed_action": proposed_action,
+            "proposed_action_kwargs": proposed_action_kwargs,
+            "guard_intervention": guard_intervention,
             "timestamp": _now(),
         })
 

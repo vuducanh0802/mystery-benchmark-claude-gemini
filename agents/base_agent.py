@@ -29,6 +29,7 @@ agent is on ``provider="anthropic"`` with no ``base_url`` (i.e. plain
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
@@ -103,7 +104,7 @@ class LLMConfig:
     """Everything needed to reach one model behind one gateway."""
 
     provider: str = "anthropic"
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-6"
     base_url: str | None = None
     api_key: str | None = None
     api_key_env: str | None = None
@@ -112,6 +113,9 @@ class LLMConfig:
     temperature: float | None = None
     seed: int | None = None
     extra_body: dict[str, Any] = field(default_factory=dict)
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
+    timeout_seconds: float = 180.0
 
     def resolved_base_url(self) -> str | None:
         if self.base_url:
@@ -121,17 +125,28 @@ class LLMConfig:
     def resolved_api_key(self) -> str:
         if self.api_key is not None:
             return self.api_key or "EMPTY"
-        env_name = self.api_key_env or _PROVIDER_KEY_ENV.get(self.provider, "")
-        if env_name:
+        if self.api_key_env:
+            env_names = (self.api_key_env,)
+        elif self.provider == "google":
+            # Both names are common. Google currently documents GEMINI_API_KEY,
+            # while older benchmark scripts used GOOGLE_API_KEY.
+            env_names = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
+        else:
+            env_name = _PROVIDER_KEY_ENV.get(self.provider, "")
+            env_names = (env_name,) if env_name else ()
+
+        for env_name in env_names:
             key = os.environ.get(env_name, "")
             if key:
                 return key
-            if self.api_key_env:  # explicitly requested env must exist — fail loud
-                raise LLMUnavailable(
-                    f"env var {self.api_key_env} is unset or empty. Export it in "
-                    f"the shell that launches the run, e.g. `export "
-                    f"{self.api_key_env}=...` (otherwise calls 401 silently)."
-                )
+
+        if env_names and self.provider in {
+            "openai", "anthropic", "google", "openrouter",
+        }:
+            joined = " or ".join(env_names)
+            raise LLMUnavailable(
+                f"required API key environment variable is unset: {joined}"
+            )
         return "EMPTY"  # vLLM / keyless-proxy convention
 
 
@@ -224,6 +239,10 @@ class BaseAgent:
         self.observation_history: list[str] = []
         self.action_history: list[dict[str, Any]] = []
         self.total_tokens_used: int = 0  # for token cost metric
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
+        self.last_input_tokens: int = 0
+        self.last_output_tokens: int = 0
 
         # LLM transport. The global gateway (if configured) wins for transport
         # fields; the agent keeps its own model unless the override pins one.
@@ -319,7 +338,10 @@ class BaseAgent:
             except ImportError as exc:
                 raise LLMUnavailable("anthropic SDK not installed") from exc
             key = cfg.resolved_api_key()
-            kwargs: dict[str, Any] = {}
+            kwargs: dict[str, Any] = {
+                "max_retries": 0,
+                "timeout": cfg.timeout_seconds,
+            }
             if key and key != "EMPTY":
                 kwargs["api_key"] = key
             self._client = anthropic.Anthropic(**kwargs)
@@ -329,11 +351,28 @@ class BaseAgent:
             import openai
         except ImportError as exc:
             raise LLMUnavailable("openai SDK not installed") from exc
-        kwargs = {"api_key": cfg.resolved_api_key()}
+        kwargs = {
+            "api_key": cfg.resolved_api_key(),
+            "max_retries": 0,
+            "timeout": cfg.timeout_seconds,
+        }
         if base_url:
             kwargs["base_url"] = base_url
         self._client = openai.OpenAI(**kwargs)
         self._client_kind = "openai"
+
+    @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        status = getattr(exc, "status_code", None)
+        if status in {408, 409, 425, 429}:
+            return True
+        if isinstance(status, int) and status >= 500:
+            return True
+        name = type(exc).__name__.lower()
+        return any(
+            marker in name
+            for marker in ("timeout", "connection", "ratelimit", "overloaded")
+        )
 
     def chat(
         self,
@@ -358,34 +397,56 @@ class BaseAgent:
         else:
             msg_list = list(messages)
 
-        if self._client_kind == "anthropic":
-            resp = self._client.messages.create(
-                model=cfg.model,
-                max_tokens=mt,
-                system=system,
-                messages=msg_list,
-            )
-            text = _content_to_text(resp.content)
-            tokens = resp.usage.input_tokens + resp.usage.output_tokens
-            return text, tokens
+        for attempt in range(cfg.max_retries + 1):
+            try:
+                if self._client_kind == "anthropic":
+                    resp = self._client.messages.create(
+                        model=cfg.model,
+                        max_tokens=mt,
+                        system=system,
+                        messages=msg_list,
+                    )
+                    text = _content_to_text(resp.content)
+                    input_tokens = int(resp.usage.input_tokens)
+                    output_tokens = int(resp.usage.output_tokens)
+                else:
+                    body = dict(cfg.extra_body)
+                    if extra_body:
+                        body.update(extra_body)
+                    temp = temperature if temperature is not None else cfg.temperature
+                    call_kwargs: dict[str, Any] = {
+                        "model": cfg.model,
+                        "max_tokens": mt,
+                        "messages": [{"role": "system", "content": system}] + msg_list,
+                    }
+                    if temp is not None:
+                        call_kwargs["temperature"] = temp
+                    if body:
+                        call_kwargs["extra_body"] = body
+                    resp = self._client.chat.completions.create(**call_kwargs)
+                    text = _content_to_text(resp.choices[0].message.content)
+                    usage = resp.usage
+                    input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+                    output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
 
-        body = dict(cfg.extra_body)
-        if extra_body:
-            body.update(extra_body)
-        temp = temperature if temperature is not None else cfg.temperature
-        call_kwargs: dict[str, Any] = {
-            "model": cfg.model,
-            "max_tokens": mt,
-            "messages": [{"role": "system", "content": system}] + msg_list,
-        }
-        if temp is not None:
-            call_kwargs["temperature"] = temp
-        if body:
-            call_kwargs["extra_body"] = body
-        resp = self._client.chat.completions.create(**call_kwargs)
-        text = _content_to_text(resp.choices[0].message.content)
-        tokens = resp.usage.total_tokens if resp.usage else 0
-        return text, tokens
+                if not text.strip():
+                    raise ValueError(f"empty completion from model {cfg.model!r}")
+                if input_tokens + output_tokens <= 0:
+                    raise ValueError(
+                        f"model {cfg.model!r} returned no token usage; "
+                        "the episode cannot be included in API-backed results"
+                    )
+                self.last_input_tokens = input_tokens
+                self.last_output_tokens = output_tokens
+                self.total_input_tokens += input_tokens
+                self.total_output_tokens += output_tokens
+                return text, input_tokens + output_tokens
+            except Exception as exc:
+                if attempt >= cfg.max_retries or not self._is_transient_error(exc):
+                    raise
+                time.sleep(cfg.retry_backoff_seconds * (2 ** attempt))
+
+        raise AssertionError("unreachable completion retry state")
 
 
 def configure_litellm(
@@ -415,7 +476,7 @@ class LLMClient(BaseAgent):
     def __init__(
         self,
         provider: str = "anthropic",
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-sonnet-4-6",
         *,
         base_url: str | None = None,
         api_key: str | None = None,

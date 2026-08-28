@@ -57,7 +57,7 @@ REGISTRY: dict[str, ModelSpec] = {
     "kimi-k2.5": ModelSpec("kimi-k2.5", provider="openai", model="kimi-k2.5"),
     "minimax-m2.5": ModelSpec("minimax-m2.5", provider="openai", model="minimax-m2.5"),
     "minimax-m2.7": ModelSpec("minimax-m2.7", provider="openai", model="minimax-m2.7"),
-    "gemini": ModelSpec("gemini", provider="google", model="gemini-2.0-flash"),
+    "gemini": ModelSpec("gemini", provider="google", model="gemini-3.6-flash"),
     "openrouter": ModelSpec("openrouter", provider="openrouter", model="qwen/qwen3.5-27b"),
 }
 

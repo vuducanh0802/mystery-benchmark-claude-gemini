@@ -53,7 +53,7 @@ AGENT_CONFIGS = {
     "claude-opus":        {"provider": "anthropic",  "model": "claude-opus-4-7"},
     "chatgpt":            {"provider": "openai",     "model": "gpt-4o"},
     "chatgpt-mini":       {"provider": "openai",     "model": "gpt-4o-mini"},
-    "gemini":             {"provider": "google",     "model": "gemini-2.0-flash"},
+    "gemini":             {"provider": "google",     "model": "gemini-3.6-flash"},
     "openrouter":         {"provider": "openrouter", "model": "qwen/qwen3.5-27b"},
 }
 

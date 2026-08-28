@@ -277,7 +277,7 @@ class SymbolicAgent(BaseAgent):
         self,
         agent_id: str = "symbolic_agent",
         provider: str = "anthropic",
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-sonnet-4-6",
     ):
         super().__init__(agent_id)
         self.llm = LLMClient(provider=provider, model=model)

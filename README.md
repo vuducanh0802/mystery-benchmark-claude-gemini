@@ -146,6 +146,11 @@ data/benchmark_v1/
 
 There are two entry points. **`sweep_eval.py` is the recommended one** — it parallelises across seeds, resumes on crash, and writes a self-describing JSONL trajectory per episode.
 
+For the paired Claude/Gemini Vanilla vs exposure-Guarded API experiment, use
+[`docs/CLAUDE_GEMINI_BASELINES.md`](docs/CLAUDE_GEMINI_BASELINES.md). Its runner
+uses one shared manifest, strict API errors, collision-free model/policy IDs,
+validated resume, and non-zero per-step token accounting.
+
 ### NPC backends
 
 NPCs are stateful and lying-aware (the system prompt injects deception directives from the ground truth). You pick a backend per run:
@@ -185,7 +190,7 @@ uv run scripts/sweep_eval.py \
 
 # Gemini detective + OpenRouter NPCs
 uv run scripts/sweep_eval.py \
-    --agent gemini --model gemini-2.0-flash \
+    --agent gemini --model gemini-3.6-flash \
     --levels TRIVIAL EASY MEDIUM --seeds 0-19 \
     --npc-provider openrouter --npc-model qwen/qwen-2.5-72b-instruct \
     --trajectory-dir results/trajectories --workers 4
@@ -209,7 +214,7 @@ Built-in agent slots (`scripts/sweep_eval.py:AGENT_CONFIGS`):
 | `claude-opus` | anthropic | `claude-opus-4-7` |
 | `chatgpt` | openai | `gpt-4o` |
 | `chatgpt-mini` | openai | `gpt-4o-mini` |
-| `gemini` | google | `gemini-2.0-flash` |
+| `gemini` | google | `gemini-3.6-flash` |
 | `openrouter` | openrouter | `qwen/qwen3.5-27b` |
 
 Output layout (one JSONL per episode):

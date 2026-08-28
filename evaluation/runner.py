@@ -133,7 +133,8 @@ def run_episode(
             if env.is_solved:
                 break
 
-            if env.budget_remaining <= 0:
+            model_called = env.budget_remaining > 0
+            if not model_called:
                 # Force accusation
                 action = AgentAction.ACCUSE
                 bs = detective_agent.belief_state
@@ -154,7 +155,11 @@ def run_episode(
                 action, kwargs = detective_agent.decide_action(obs_context)
             
             # Capture observation passed INTO the detective for this step (for replay)
-            input_obs = obs_context if env.budget_remaining > 0 else "[budget exhausted; forcing accusation]"
+            input_obs = (
+                obs_context
+                if model_called
+                else "[budget exhausted; forcing accusation]"
+            )
 
             # Execute action
             action_result = env.step(action, **kwargs)
@@ -185,10 +190,32 @@ def run_episode(
                     action=action.name,
                     action_kwargs=kwargs,
                     observation=input_obs,
-                    model_response=getattr(detective_agent, "last_raw_response", None),
+                    model_response=(
+                        getattr(detective_agent, "last_raw_response", None)
+                        if model_called else None
+                    ),
                     result_observation=observation,
                     success=action_result.success,
                     post_state_hash=world_state_hash(world_state),
+                    model_called=model_called,
+                    input_tokens=(
+                        detective_agent.last_input_tokens if model_called else 0
+                    ),
+                    output_tokens=(
+                        detective_agent.last_output_tokens if model_called else 0
+                    ),
+                    proposed_action=(
+                        getattr(detective_agent, "last_proposed_action", action.name)
+                        if model_called else action.name
+                    ),
+                    proposed_action_kwargs=(
+                        getattr(detective_agent, "last_proposed_action_args", kwargs)
+                        if model_called else kwargs
+                    ),
+                    guard_intervention=(
+                        getattr(detective_agent, "last_guard_intervention", None)
+                        if model_called else None
+                    ),
                 )
             _notify_step({
                 "step": step_idx,
@@ -237,6 +264,15 @@ def run_episode(
                         result_observation=culprit_observation,
                         success=culprit_result.success,
                         post_state_hash=world_state_hash(world_state),
+                        model_called=True,
+                        input_tokens=getattr(culprit_agent, "last_input_tokens", 0),
+                        output_tokens=getattr(culprit_agent, "last_output_tokens", 0),
+                        proposed_action=getattr(
+                            culprit_agent, "last_proposed_action", culprit_action.name,
+                        ),
+                        proposed_action_kwargs=getattr(
+                            culprit_agent, "last_proposed_action_args", culprit_kwargs,
+                        ),
                     )
                 _notify_step({
                     "step": step_idx,
@@ -266,10 +302,12 @@ def run_episode(
             ground_truth=ground_truth,
             total_tokens=detective_agent.total_tokens_used,
             complexity_level=complexity_level,
+            input_tokens=detective_agent.total_input_tokens,
+            output_tokens=detective_agent.total_output_tokens,
         )
     except Exception as e:
         logger.exception(f"Error in episode seed={world_state.seed}")
-        result.error = str(e)
+        result.error = f"{type(e).__name__}: {e}"
     
     result.elapsed_seconds = time.time() - t0
     return result
