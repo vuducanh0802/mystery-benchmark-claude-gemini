@@ -79,14 +79,30 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### API Keys
 
-Export whichever keys you need (only the providers you'll actually call):
+For the Claude/Gemini Vanilla vs Guarded experiment, copy the safe template:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."   # Claude detective + Claude NPCs
-export OPENAI_API_KEY="sk-..."          # GPT detective + OpenAI-direct NPCs
-export GOOGLE_API_KEY="..."             # Gemini detective
-export OPENROUTER_API_KEY="sk-or-..."   # OpenRouter detective + OpenRouter NPCs
+cp .env.example .env
 ```
+
+Open `.env` and paste the two lab keys after `=`:
+
+```dotenv
+ANTHROPIC_API_KEY=paste_claude_key_here
+GEMINI_API_KEY=paste_gemini_key_here
+```
+
+Then launch the complete paired experiment:
+
+```bash
+bash scripts/run_claude_gemini_baselines.sh
+```
+
+The launcher reads `.env` automatically. The file is gitignored, its values are
+never logged, and no key is written into trajectories or result metadata.
+
+Other benchmark entry points still accept `OPENAI_API_KEY`, `GOOGLE_API_KEY`,
+and `OPENROUTER_API_KEY` from the shell when those providers are selected.
 
 ---
 

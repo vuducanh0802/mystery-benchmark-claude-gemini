@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+ENV_FILE="${ENV_FILE:-$ROOT/.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
 if command -v uv >/dev/null 2>&1; then
   python_cmd=(uv run python)
 else
@@ -17,11 +25,11 @@ else
 fi
 MODELS="${MODELS:-claude gemini}"
 if [[ " $MODELS " == *" claude "* && -z "${ANTHROPIC_API_KEY:-}" ]]; then
-  echo "ANTHROPIC_API_KEY is unset in this shell." >&2
+  echo "ANTHROPIC_API_KEY is missing. Paste it into $ENV_FILE." >&2
   exit 2
 fi
 if [[ " $MODELS " == *" gemini "* && -z "${GEMINI_API_KEY:-}" && -z "${GOOGLE_API_KEY:-}" ]]; then
-  echo "GEMINI_API_KEY or GOOGLE_API_KEY is unset in this shell." >&2
+  echo "GEMINI_API_KEY is missing. Paste it into $ENV_FILE." >&2
   exit 2
 fi
 

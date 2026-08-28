@@ -16,12 +16,19 @@ The only treatment difference within each model is the detective policy.
 
 ```bash
 uv sync
-export ANTHROPIC_API_KEY="..."
-export GEMINI_API_KEY="..."  # GOOGLE_API_KEY is also accepted
+cp .env.example .env
 ```
 
-Keys are read only from the process environment. They are never written to the
-trajectory, run configuration, logs, or repository.
+Paste the two keys into `.env`:
+
+```dotenv
+ANTHROPIC_API_KEY=paste_claude_key_here
+GEMINI_API_KEY=paste_gemini_key_here
+```
+
+The launcher loads `.env` automatically. `GOOGLE_API_KEY` is also accepted as
+the Gemini variable. Keys are never written to trajectories, run configuration,
+logs, or the repository.
 
 Validate the manifest, matrix, and presence of both keys without making API calls:
 
