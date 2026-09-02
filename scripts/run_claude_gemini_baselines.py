@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run paired API-model Vanilla and Guarded detective baselines.
+"""Run paired Claude/Gemini Vanilla and Guarded detective baselines.
 
 The runner consumes one benchmark manifest, gives every model/policy cell the
 same serialized worlds, keeps identities collision-free, resumes only complete
@@ -42,7 +42,6 @@ LEVEL_VALUES = {name: value for value, name in LEVEL_NAMES.items()}
 POLICIES = ("vanilla", "guarded")
 DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
 DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
-DEFAULT_GPT4O_MODEL = "gpt-4o"
 GUARD_VERSION = "exposure-bias-guard-v1"
 
 
@@ -499,7 +498,6 @@ def _models_from_args(args: argparse.Namespace) -> list[ModelSpec]:
     available = {
         "claude": ModelSpec("claude", "anthropic", args.claude_model),
         "gemini": ModelSpec("gemini", "google", args.gemini_model),
-        "gpt4o": ModelSpec("gpt4o", "openai", args.gpt4o_model),
     }
     return [available[name] for name in args.models]
 
@@ -512,7 +510,7 @@ def _verify_credentials(models: list[ModelSpec]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Paired API-model Vanilla vs Guarded benchmark",
+        description="Paired Claude/Gemini Vanilla vs Guarded benchmark",
     )
     parser.add_argument("--benchmark-dir", type=Path, default=ROOT / "data/benchmark_v1")
     parser.add_argument(
@@ -520,19 +518,14 @@ def main() -> int:
         default=ROOT / "results/claude_gemini_vanilla_guarded",
     )
     parser.add_argument("--experiment-id", default="claude_gemini_vanilla_guarded_v1")
-    parser.add_argument(
-        "--models", nargs="+", choices=("claude", "gemini", "gpt4o"),
-        default=["claude", "gemini"],
-    )
+    parser.add_argument("--models", nargs="+", choices=("claude", "gemini"), default=["claude", "gemini"])
     parser.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     parser.add_argument("--levels", nargs="+", default=list(LEVEL_NAMES.values()))
     parser.add_argument("--per-level", type=int, default=None)
     parser.add_argument("--claude-model", default=os.environ.get("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL))
     parser.add_argument("--gemini-model", default=os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
-    parser.add_argument("--gpt4o-model", default=os.environ.get("GPT4O_MODEL", DEFAULT_GPT4O_MODEL))
     parser.add_argument("--claude-workers", type=int, default=4)
     parser.add_argument("--gemini-workers", type=int, default=8)
-    parser.add_argument("--gpt4o-workers", type=int, default=8)
     parser.add_argument("--max-tokens", type=int, default=4096)
     parser.add_argument("--history-window", type=int, default=10)
     parser.add_argument("--timeout-seconds", type=float, default=180.0)
@@ -550,7 +543,7 @@ def main() -> int:
 
     if args.per_level is not None and args.per_level <= 0:
         parser.error("--per-level must be positive")
-    if min(args.claude_workers, args.gemini_workers, args.gpt4o_workers) <= 0:
+    if min(args.claude_workers, args.gemini_workers) <= 0:
         parser.error("provider worker counts must be positive")
     if args.history_window < 0 or args.max_tokens <= 0:
         parser.error("history window must be nonnegative and max tokens positive")
@@ -610,11 +603,7 @@ def main() -> int:
         json.dumps(config, indent=2), encoding="utf-8",
     )
 
-    limits = {
-        "claude": args.claude_workers,
-        "gemini": args.gemini_workers,
-        "gpt4o": args.gpt4o_workers,
-    }
+    limits = {"claude": args.claude_workers, "gemini": args.gemini_workers}
     semaphores = {
         name: threading.BoundedSemaphore(limits[name])
         for name in limits
