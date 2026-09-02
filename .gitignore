@@ -33,6 +33,7 @@ data/
 
 # Results (generated — not committed)
 results/
+logs/
 
 # Jupyter
 .ipynb_checkpoints/
