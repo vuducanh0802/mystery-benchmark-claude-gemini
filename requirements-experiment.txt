@@ -1,0 +1,4 @@
+# Lightweight client only. Model servers live in a separate environment/machine.
+numpy>=1.26,<3
+openai>=2.31,<3
+structlog>=25.5,<27

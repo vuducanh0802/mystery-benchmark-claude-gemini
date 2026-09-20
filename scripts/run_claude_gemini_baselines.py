@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
-from typing import Any
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -135,7 +135,6 @@ def _resolve_instance_path(
 ) -> Path:
     raw = Path(raw_path)
     candidates = [raw] if raw.is_absolute() else [
-        ROOT / raw,
         benchmark_dir / raw,
         benchmark_dir / f"level_{level}" / raw.name,
     ]
@@ -306,14 +305,17 @@ def _make_agent(job: Job, args: argparse.Namespace) -> LLMDetectiveAgent:
     )
 
 
-def _run_job(output_dir: Path, experiment_id: str, job: Job, args: argparse.Namespace) -> JobResult:
+def _run_job(
+    output_dir: Path, experiment_id: str, job: Job, args: argparse.Namespace,
+    *, agent_factory: Callable = _make_agent,
+) -> JobResult:
     final_path = trajectory_path(output_dir, job)
     valid, _, _ = validate_trajectory(final_path, job)
     if valid:
         return JobResult(job, "skipped")
 
     state = WorldState.load(job.case.path)
-    agent = _make_agent(job, args)
+    agent = agent_factory(job, args)
     final_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = final_path.with_suffix(
         final_path.suffix + f".{os.getpid()}.{threading.get_ident()}.tmp",

@@ -45,3 +45,10 @@ proposed_changes.md
 main.py
 pr_description.md
 claude.md
+
+# Local handoff logs and credential variants
+logs/
+*.log
+.env.*
+!.env.example
+.pytest_cache/
