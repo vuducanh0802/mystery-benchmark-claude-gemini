@@ -3,9 +3,6 @@
 Handoff branch: `experiments/gpt-oss-kimi-vanilla-guarded`.
 Based on `experiments/claude-gemini-vanilla-guarded` at `cac44d7`.
 
-This is a **benchmark client** for a friend's model servers. It does not download
-weights, install a GPU inference engine, or launch models. Supply OpenAI-compatible
-Chat Completions endpoints (vLLM, SGLang, or a hosted provider).
 
 Default matrix: **GPT-OSS-120B + Kimi-K2.5**, each with **vanilla + guarded**, on
 1,000 frozen case entries (200 per difficulty): **4,000 episodes**.
