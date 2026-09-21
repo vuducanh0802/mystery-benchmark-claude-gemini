@@ -1,14 +1,17 @@
-# GPT-OSS / Kimi: Vanilla vs Guarded
+# GPT-OSS / Kimi: Vanilla vs. Guarded Evaluation
 
-Handoff branch: `experiments/gpt-oss-kimi-vanilla-guarded`.
-Based on `experiments/claude-gemini-vanilla-guarded` at `cac44d7`.
+This branch evaluates GPT-OSS and Kimi detective agents using the same protocol
+as the Claude/Gemini experiment. It supports OpenAI-compatible Chat Completions
+endpoints provided by vLLM, SGLang, or a hosted inference service.
 
+The repository contains the evaluation runner and a frozen benchmark suite.
+Model weights and inference servers are managed separately.
 
 Default matrix: **GPT-OSS-120B + Kimi-K2.5**, each with **vanilla + guarded**, on
 1,000 frozen case entries (200 per difficulty): **4,000 episodes**.
 GPT-OSS-20B and original Kimi-K2 are configurable below.
 
-## 1. Clone and install the lightweight client
+## 1. Clone and install
 
 ```bash
 git clone --branch experiments/gpt-oss-kimi-vanilla-guarded --single-branch \
@@ -21,31 +24,31 @@ python3 -m venv .venv
 cp .env.example .env
 ```
 
-Use Python 3.10 or newer for this client. The full application has its own
-Python 3.13 `pyproject.toml`; `uv sync` is not needed for this lightweight path.
-Run model servers in their own environments; do not install vLLM into this client.
+Python 3.10 or newer is required. The full application has a separate Python 3.13
+environment in `pyproject.toml`; it is not required for this experiment runner.
+Keep model-serving dependencies such as vLLM in a separate environment.
 
-## 2. Configure your running endpoints
+## 2. Configure model endpoints
 
-Edit `.env` on the machine where you run the experiment:
+Edit `.env` with the endpoint settings used for the experiment:
 
 ```dotenv
 GPT_OSS_BASE_URL=http://localhost:8000/v1
 GPT_OSS_MODEL=openai/gpt-oss-120b
 GPT_OSS_API_KEY=EMPTY
-GPT_OSS_REVISION=your-checkpoint-and-serving-version
+GPT_OSS_REVISION=checkpoint-quantization-engine-version
 GPT_OSS_EXTRA_BODY='{"reasoning_effort":"medium"}'
 GPT_OSS_TEMPERATURE=
 
 KIMI_BASE_URL=http://localhost:8001/v1
 KIMI_MODEL=moonshotai/Kimi-K2.5
 KIMI_API_KEY=EMPTY
-KIMI_REVISION=your-checkpoint-and-serving-version
+KIMI_REVISION=checkpoint-quantization-engine-version
 KIMI_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false},"top_p":0.95}'
 KIMI_TEMPERATURE=0.6
 ```
 
-- `MODEL` must match your endpoint's served name. A provider may use a different
+- `MODEL` must match the endpoint's served name. A provider may use a different
   name from the Hugging Face repository.
 - Replace localhost with the server hostname when using a remote server.
 - Use the real provider key for authenticated endpoints; use `EMPTY` explicitly
@@ -61,7 +64,7 @@ KIMI_TEMPERATURE=0.6
 
 **GPT-OSS-20B:** set `GPT_OSS_MODEL=openai/gpt-oss-20b` (or its served alias).
 
-**Kimi-K2 original, non-thinking:** set your served model name, for example
+**Kimi-K2 original, non-thinking:** set the served model name, for example
 `moonshotai/Kimi-K2-Instruct`, set `KIMI_EXTRA_BODY='{}'`, and choose the decoding
 settings for that checkpoint. Do not apply K2.5-specific options automatically.
 
@@ -69,19 +72,19 @@ settings for that checkpoint. Do not apply K2.5-specific options automatically.
 `KIMI_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":true},"top_p":0.95}'`
 and `KIMI_TEMPERATURE=1.0`.
 
-**Moonshot hosted K2.5:** use your account's API base URL, `KIMI_MODEL=kimi-k2.5`,
-and `KIMI_API_KEY=<your key>`. For Instant mode, use
+**Moonshot hosted K2.5:** use the account API base URL, `KIMI_MODEL=kimi-k2.5`,
+and `KIMI_API_KEY=<api-key>`. For Instant mode, use
 `KIMI_EXTRA_BODY='{"thinking":{"type":"disabled"},"top_p":0.95}'` and
 `KIMI_TEMPERATURE=0.6`; for Thinking use `type=enabled` and temperature `1.0`.
 
 The server must return final JSON in `choices[0].message.content` and nonzero
 `usage.prompt_tokens` / `usage.completion_tokens`. Reasoning-only output is not
-an action. Configure the server's reasoning parser for your model. Increase
+an action. Configure the server's reasoning parser for the selected model. Increase
 `MAX_TOKENS` if thinking consumes the completion budget; context limits must
 accommodate the prompt **plus** this allowance. Defaults are 16,384 output tokens
 and a 10-observation history for both policies.
 
-References for serving (commands depend on your hardware and engine version):
+References for serving (commands depend on the hardware and engine version):
 [GPT-OSS vLLM recipe](https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md),
 [Kimi-K2.5 model card](https://huggingface.co/moonshotai/Kimi-K2.5),
 [vLLM reasoning output configuration](https://docs.vllm.ai/en/latest/features/reasoning_outputs/).
@@ -141,8 +144,8 @@ MODELS=kimi OUTPUT_DIR=results/kimi_full \
 ```
 
 Defaults are one concurrent episode per endpoint. Set `GPT_OSS_WORKERS=2` and/or
-`KIMI_WORKERS=2` only if your servers have capacity. Same command and configuration
-resume completed runs; incomplete/error trajectories are retried. Do not launch
+`KIMI_WORKERS=2` only when the servers have sufficient capacity. The same command
+and configuration resume completed runs; incomplete/error trajectories are retried. Do not launch
 two client processes into the same output directory.
 
 Changing model, endpoint, decoding, selected cases/policies, or relevant Python
@@ -151,7 +154,7 @@ can change without invalidating already completed trajectories. Environment
 assignments inside `.env` override prefixed shell variables; keep run controls
 commented there if using the examples above.
 
-## 6. Outputs to send back
+## 6. Outputs
 
 ```text
 results/gpt_oss_kimi_vanilla_guarded/
@@ -179,7 +182,7 @@ tar -czf mystery-gpt-oss-kimi-results.tar.gz \
   -C results gpt_oss_kimi_vanilla_guarded
 ```
 
-Send that file plus the model server configuration/version. Do not include `.env`.
+Archive the model-server configuration and version separately. Do not include `.env`.
 
 ## Protocol and tests
 
