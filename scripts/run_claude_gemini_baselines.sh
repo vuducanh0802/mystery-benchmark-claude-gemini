@@ -91,6 +91,9 @@ cmd=(
 if [[ -n "${PER_LEVEL:-}" ]]; then
   cmd+=(--per-level "$PER_LEVEL")
 fi
+if [[ -n "${TARGET_PER_LEVEL:-}" ]]; then
+  cmd+=(--target-per-level "$TARGET_PER_LEVEL")
+fi
 if [[ "${VALIDATE_ONLY:-0}" == "1" ]]; then
   cmd+=(--validate-only)
 fi

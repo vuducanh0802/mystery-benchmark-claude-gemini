@@ -13,6 +13,7 @@ from scripts.run_claude_gemini_baselines import (
     _is_fatal_provider_error,
     build_jobs,
     load_cases,
+    select_target_jobs,
     validate_trajectory,
 )
 
@@ -56,6 +57,11 @@ def test_manifest_matrix_is_paired_and_collision_free(tmp_path: Path):
             ("gemini", "vanilla"),
             ("gemini", "guarded"),
         }
+
+    target = select_target_jobs(jobs, 1)
+    assert len(target) == 8
+    assert {job.case.ordinal for job in target} == {0}
+    assert select_target_jobs(jobs, None) is jobs
 
 
 def _job(tmp_path: Path) -> Job:

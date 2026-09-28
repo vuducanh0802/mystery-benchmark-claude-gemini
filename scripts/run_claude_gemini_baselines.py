@@ -217,6 +217,12 @@ def build_jobs(
     return jobs
 
 
+def select_target_jobs(jobs: list[Job], target_per_level: int | None) -> list[Job]:
+    if target_per_level is None:
+        return jobs
+    return [job for job in jobs if job.case.ordinal < target_per_level]
+
+
 def trajectory_path(output_dir: Path, job: Job) -> Path:
     return (
         output_dir / "trajectories" / job.model.identity / job.policy
@@ -527,6 +533,10 @@ def main() -> int:
     parser.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     parser.add_argument("--levels", nargs="+", default=list(LEVEL_NAMES.values()))
     parser.add_argument("--per-level", type=int, default=None)
+    parser.add_argument(
+        "--target-per-level", type=int, default=None,
+        help="Run only the first N cases per level without changing the full-run fingerprint",
+    )
     parser.add_argument("--claude-model", default=os.environ.get("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL))
     parser.add_argument("--gemini-model", default=os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
     parser.add_argument("--gpt4o-model", default=os.environ.get("GPT4O_MODEL", DEFAULT_GPT4O_MODEL))
@@ -550,6 +560,8 @@ def main() -> int:
 
     if args.per_level is not None and args.per_level <= 0:
         parser.error("--per-level must be positive")
+    if args.target_per_level is not None and args.target_per_level <= 0:
+        parser.error("--target-per-level must be positive")
     if min(args.claude_workers, args.gemini_workers, args.gpt4o_workers) <= 0:
         parser.error("provider worker counts must be positive")
     if args.history_window < 0 or args.max_tokens <= 0:
@@ -559,6 +571,15 @@ def main() -> int:
     models = _models_from_args(args)
     _verify_credentials(models)
     cases = load_cases(args.benchmark_dir.resolve(), levels, args.per_level)
+    if args.target_per_level is not None:
+        available = Counter(case.level for case in cases)
+        short = {
+            LEVEL_NAMES[level]: available[level]
+            for level in sorted(levels)
+            if available[level] < args.target_per_level
+        }
+        if short:
+            parser.error(f"not enough cases for --target-per-level: {short}")
     os.environ["MYSTERY_LLM_HISTORY_WINDOW"] = str(args.history_window)
 
     config = {
@@ -591,9 +612,11 @@ def main() -> int:
         )
     })
     config["created_at"] = _now()
+    config["target_per_level"] = args.target_per_level
     jobs = build_jobs(
         cases, models, args.policies, config["config_fingerprint"],
     )
+    target_jobs = select_target_jobs(jobs, args.target_per_level)
     print(
         f"Matrix: {len(cases)} cases x {len(models)} models x "
         f"{len(args.policies)} policies = {len(jobs)} jobs"
@@ -601,6 +624,8 @@ def main() -> int:
     for model in models:
         print(f"  {model.name}: provider={model.provider} model={model.model}")
     print("  credentials: present (values are never logged)")
+    if args.target_per_level is not None:
+        print(f"  target: {len(target_jobs)} jobs ({args.target_per_level} cases/level/policy)")
     if args.validate_only:
         print("Validation-only complete; no API calls were made.")
         return 0
@@ -638,7 +663,7 @@ def main() -> int:
 
     for retry_round in range(args.retry_rounds + 1):
         pending = [
-            job for job in jobs
+            job for job in target_jobs
             if not validate_trajectory(trajectory_path(args.output_dir, job), job)[0]
             and job.model.name not in blocked_models
         ]
@@ -662,7 +687,7 @@ def main() -> int:
                     )
                 if completed % 25 == 0 or completed == len(pending):
                     print(f"  [{completed}/{len(pending)}] {dict(counts)}")
-        validation = write_reports(args.output_dir, jobs)
+        validation = write_reports(args.output_dir, target_jobs)
         print(f"  valid: {validation['valid']}/{validation['expected']}")
         if blocked_models:
             print(
@@ -671,7 +696,7 @@ def main() -> int:
             )
             break
 
-    validation = write_reports(args.output_dir, jobs)
+    validation = write_reports(args.output_dir, target_jobs)
     print(f"Output: {args.output_dir}")
     print(f"Complete: {validation['complete']} ({validation['valid']}/{validation['expected']})")
     return 0 if validation["complete"] else 1
