@@ -1,60 +1,43 @@
-# Claude/Gemini Vanilla vs Guarded Experiment
+# GPT-4o Vanilla vs Guarded Experiment
 
-## Run From A Fresh Server
+This branch runs GPT-4o as Detective under both policies on the same five-level benchmark manifest. It uses the OpenAI API directly and requires `OPENAI_API_KEY`.
+
+## Fresh run
 
 ```bash
-git clone --branch experiments/claude-gemini-vanilla-guarded --single-branch \
+git clone --branch experiments/gpt4o-vanilla-guarded --single-branch \
   https://github.com/vuducanh0802/mystery-benchmark-claude-gemini.git
 cd mystery-benchmark-claude-gemini
-```
-
-Install dependencies:
-
-```bash
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 uv sync
 ```
 
-Create the local key file:
+Set `OPENAI_API_KEY` in your shell, or put it in a local `.env` file:
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Paste both keys after `=` and save:
-
-```dotenv
-ANTHROPIC_API_KEY=paste_claude_key_here
-GEMINI_API_KEY=paste_gemini_key_here
-```
-
-Validate setup without making API calls:
+Check the 2,000-job matrix without calling the API, then launch:
 
 ```bash
-VALIDATE_ONLY=1 bash scripts/run_claude_gemini_baselines.sh
+VALIDATE_ONLY=1 bash scripts/run_gpt4o_baselines.sh
+bash scripts/run_gpt4o_baselines.sh
 ```
 
-Run the complete experiment:
+The launcher generates 200 cases per level if the manifest is missing. Re-running the same command skips complete, API-backed trajectories and retries incomplete episodes. Results are in `results/gpt4o_vanilla_guarded_200x5/summary.csv`, `validation.json`, and `trajectories/`.
+
+## Resume the September run on this server
+
+The earlier run has 15 valid trajectories in the Claude/Gemini worktree. To reuse those exact files and its manifest, run from this branch with the original paths and experiment ID:
 
 ```bash
-bash scripts/run_claude_gemini_baselines.sh
+BENCHMARK_DIR=/home/vda/mystery-benchmark-claude-gemini/data/benchmark_v1 \
+OUTPUT_DIR=/home/vda/mystery-benchmark-claude-gemini/results/gpt4o_vanilla_guarded_200x5 \
+EXPERIMENT_ID=claude_gemini_vanilla_guarded_v1 \
+bash scripts/run_gpt4o_baselines.sh
 ```
 
-The same command resumes an interrupted run. Results are written to:
-
-```text
-results/claude_gemini_vanilla_guarded/summary.csv
-results/claude_gemini_vanilla_guarded/validation.json
-results/claude_gemini_vanilla_guarded/trajectories/
-```
-
-Check completion and results:
-
-```bash
-cat results/claude_gemini_vanilla_guarded/validation.json
-column -s, -t < results/claude_gemini_vanilla_guarded/summary.csv | less -S
-```
-
-`.env`, generated benchmark data, trajectories, and results are gitignored.
+An invalid model action is recorded as an episode error and retried; it no longer blocks the entire provider queue. API errors remain errors, with no heuristic fallback. Generated data, results, `.env`, and logs are excluded from git.

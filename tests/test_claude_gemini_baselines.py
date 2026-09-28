@@ -10,10 +10,17 @@ from scripts.run_claude_gemini_baselines import (
     BenchmarkCase,
     Job,
     ModelSpec,
+    _is_fatal_provider_error,
     build_jobs,
     load_cases,
     validate_trajectory,
 )
+
+
+def test_invalid_model_action_does_not_block_provider():
+    assert not _is_fatal_provider_error("ValueError: unknown model action 'ACCUSING'")
+    assert _is_fatal_provider_error("AuthenticationError: status code: 401")
+    assert _is_fatal_provider_error("NotFoundError: status code: 404; model not found")
 
 
 def test_manifest_matrix_is_paired_and_collision_free(tmp_path: Path):

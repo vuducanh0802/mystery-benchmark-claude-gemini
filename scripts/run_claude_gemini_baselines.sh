@@ -32,13 +32,20 @@ if [[ " $MODELS " == *" gemini "* && -z "${GEMINI_API_KEY:-}" && -z "${GOOGLE_AP
   echo "GEMINI_API_KEY is missing. Paste it into $ENV_FILE." >&2
   exit 2
 fi
+if [[ " $MODELS " == *" gpt4o "* && -z "${OPENAI_API_KEY:-}" ]]; then
+  echo "OPENAI_API_KEY is missing. Paste it into $ENV_FILE." >&2
+  exit 2
+fi
 
 BENCHMARK_DIR="${BENCHMARK_DIR:-$ROOT/data/benchmark_v1}"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT/results/claude_gemini_vanilla_guarded}"
+EXPERIMENT_ID="${EXPERIMENT_ID:-claude_gemini_vanilla_guarded_v1}"
 CLAUDE_MODEL="${CLAUDE_MODEL:-claude-sonnet-4-6}"
 GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.6-flash}"
+GPT4O_MODEL="${GPT4O_MODEL:-gpt-4o}"
 CLAUDE_WORKERS="${CLAUDE_WORKERS:-4}"
 GEMINI_WORKERS="${GEMINI_WORKERS:-8}"
+GPT4O_WORKERS="${GPT4O_WORKERS:-8}"
 MAX_TOKENS="${MAX_TOKENS:-4096}"
 HISTORY_WINDOW="${HISTORY_WINDOW:-10}"
 RETRY_ROUNDS="${RETRY_ROUNDS:-1}"
@@ -66,10 +73,13 @@ cmd=(
   "${python_cmd[@]}" scripts/run_claude_gemini_baselines.py
   --benchmark-dir "$BENCHMARK_DIR"
   --output-dir "$OUTPUT_DIR"
+  --experiment-id "$EXPERIMENT_ID"
   --claude-model "$CLAUDE_MODEL"
   --gemini-model "$GEMINI_MODEL"
+  --gpt4o-model "$GPT4O_MODEL"
   --claude-workers "$CLAUDE_WORKERS"
   --gemini-workers "$GEMINI_WORKERS"
+  --gpt4o-workers "$GPT4O_WORKERS"
   --max-tokens "$MAX_TOKENS"
   --history-window "$HISTORY_WINDOW"
   --retry-rounds "$RETRY_ROUNDS"
@@ -85,7 +95,7 @@ if [[ "${VALIDATE_ONLY:-0}" == "1" ]]; then
   cmd+=(--validate-only)
 fi
 
-echo "Launching Claude/Gemini paired baselines. API key values will not be printed."
+echo "Launching paired API-model baselines. API key values will not be printed."
 printf ' %q' "${cmd[@]}"
 printf '\n'
 exec "${cmd[@]}"
