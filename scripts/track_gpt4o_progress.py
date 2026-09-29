@@ -20,17 +20,24 @@ from run_claude_gemini_baselines import (
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
-    parser.add_argument("--target-per-level", type=int, default=20)
+    parser.add_argument("--target-per-level", type=int, default=None)
+    parser.add_argument("--start-ordinal", type=int, default=None)
+    parser.add_argument("--target-policies", nargs="+", default=None)
     args = parser.parse_args()
-    if args.target_per_level <= 0:
-        parser.error("--target-per-level must be positive")
 
     config = json.loads((args.output_dir / "run_config.json").read_text())
+    target_per_level = args.target_per_level or config.get("target_per_level")
+    start_ordinal = args.start_ordinal if args.start_ordinal is not None else config.get("start_ordinal", 0)
+    target_policies = args.target_policies or config.get("target_policies")
+    if target_per_level is not None and target_per_level <= 0:
+        parser.error("--target-per-level must be positive")
     cases = load_cases(Path(config["benchmark_dir"]), set(LEVEL_NAMES), None)
     models = [ModelSpec(**model) for model in config["models"]]
     jobs = select_target_jobs(
         build_jobs(cases, models, config["policies"], config["config_fingerprint"]),
-        args.target_per_level,
+        target_per_level,
+        start_ordinal,
+        target_policies,
     )
     valid = Counter()
     invalid = Counter()
@@ -44,7 +51,7 @@ def main() -> None:
 
     print("model   policy   level     valid  target  missing")
     for model in models:
-        for policy in config["policies"]:
+        for policy in target_policies or config["policies"]:
             for level, label in LEVEL_NAMES.items():
                 key = (model.name, policy, level)
                 total = valid[key] + invalid[key]

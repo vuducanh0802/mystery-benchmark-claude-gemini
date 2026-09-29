@@ -54,3 +54,15 @@ Check completed, API-backed cases by policy and level while it runs:
 ```bash
 python scripts/track_gpt4o_progress.py /home/vda/mystery-benchmark-claude-gemini/results/gpt4o_vanilla_guarded_200x5
 ```
+
+To add exactly 30 new guarded cases per level after the 20-case pilot, keep the full policy fingerprint and select ordinals 20-49:
+
+```bash
+BENCHMARK_DIR=/home/vda/mystery-benchmark-claude-gemini/data/benchmark_v1 \
+OUTPUT_DIR=/home/vda/mystery-benchmark-claude-gemini/results/gpt4o_vanilla_guarded_200x5 \
+EXPERIMENT_ID=claude_gemini_vanilla_guarded_v1 \
+TARGET_PER_LEVEL=30 START_ORDINAL=20 TARGET_POLICIES=guarded \
+bash scripts/run_gpt4o_baselines.sh
+```
+
+The window report replaces `summary.csv` and `validation.json` in the output directory; save the earlier pilot report before running this command. Completed trajectories remain intact. The progress command above reads the active window from `run_config.json`.

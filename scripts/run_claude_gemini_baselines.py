@@ -217,10 +217,21 @@ def build_jobs(
     return jobs
 
 
-def select_target_jobs(jobs: list[Job], target_per_level: int | None) -> list[Job]:
-    if target_per_level is None:
+def select_target_jobs(
+    jobs: list[Job],
+    target_per_level: int | None,
+    start_ordinal: int = 0,
+    target_policies: list[str] | None = None,
+) -> list[Job]:
+    if target_per_level is None and start_ordinal == 0 and target_policies is None:
         return jobs
-    return [job for job in jobs if job.case.ordinal < target_per_level]
+    end_ordinal = start_ordinal + target_per_level if target_per_level is not None else None
+    return [
+        job for job in jobs
+        if job.case.ordinal >= start_ordinal
+        and (end_ordinal is None or job.case.ordinal < end_ordinal)
+        and (target_policies is None or job.policy in target_policies)
+    ]
 
 
 def trajectory_path(output_dir: Path, job: Job) -> Path:
@@ -535,8 +546,10 @@ def main() -> int:
     parser.add_argument("--per-level", type=int, default=None)
     parser.add_argument(
         "--target-per-level", type=int, default=None,
-        help="Run only the first N cases per level without changing the full-run fingerprint",
+        help="Run N cases per level starting at --start-ordinal without changing the full-run fingerprint",
     )
+    parser.add_argument("--start-ordinal", type=int, default=0)
+    parser.add_argument("--target-policies", nargs="+", choices=POLICIES, default=None)
     parser.add_argument("--claude-model", default=os.environ.get("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL))
     parser.add_argument("--gemini-model", default=os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
     parser.add_argument("--gpt4o-model", default=os.environ.get("GPT4O_MODEL", DEFAULT_GPT4O_MODEL))
@@ -562,6 +575,12 @@ def main() -> int:
         parser.error("--per-level must be positive")
     if args.target_per_level is not None and args.target_per_level <= 0:
         parser.error("--target-per-level must be positive")
+    if args.start_ordinal < 0:
+        parser.error("--start-ordinal must be nonnegative")
+    if args.start_ordinal and args.target_per_level is None:
+        parser.error("--start-ordinal requires --target-per-level")
+    if args.target_policies is not None and not set(args.target_policies) <= set(args.policies):
+        parser.error("--target-policies must be a subset of --policies")
     if min(args.claude_workers, args.gemini_workers, args.gpt4o_workers) <= 0:
         parser.error("provider worker counts must be positive")
     if args.history_window < 0 or args.max_tokens <= 0:
@@ -576,7 +595,7 @@ def main() -> int:
         short = {
             LEVEL_NAMES[level]: available[level]
             for level in sorted(levels)
-            if available[level] < args.target_per_level
+            if available[level] < args.start_ordinal + args.target_per_level
         }
         if short:
             parser.error(f"not enough cases for --target-per-level: {short}")
@@ -613,10 +632,14 @@ def main() -> int:
     })
     config["created_at"] = _now()
     config["target_per_level"] = args.target_per_level
+    config["start_ordinal"] = args.start_ordinal
+    config["target_policies"] = args.target_policies
     jobs = build_jobs(
         cases, models, args.policies, config["config_fingerprint"],
     )
-    target_jobs = select_target_jobs(jobs, args.target_per_level)
+    target_jobs = select_target_jobs(
+        jobs, args.target_per_level, args.start_ordinal, args.target_policies,
+    )
     print(
         f"Matrix: {len(cases)} cases x {len(models)} models x "
         f"{len(args.policies)} policies = {len(jobs)} jobs"
@@ -624,8 +647,13 @@ def main() -> int:
     for model in models:
         print(f"  {model.name}: provider={model.provider} model={model.model}")
     print("  credentials: present (values are never logged)")
-    if args.target_per_level is not None:
-        print(f"  target: {len(target_jobs)} jobs ({args.target_per_level} cases/level/policy)")
+    if args.target_per_level is not None or args.target_policies is not None:
+        print(
+            f"  target: {len(target_jobs)} jobs "
+            f"(ordinals {args.start_ordinal}.."
+            f"{args.start_ordinal + args.target_per_level - 1 if args.target_per_level is not None else 'end'}, "
+            f"policies={args.target_policies or args.policies})"
+        )
     if args.validate_only:
         print("Validation-only complete; no API calls were made.")
         return 0

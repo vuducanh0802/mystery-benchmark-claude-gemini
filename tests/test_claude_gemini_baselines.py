@@ -62,6 +62,10 @@ def test_manifest_matrix_is_paired_and_collision_free(tmp_path: Path):
     assert len(target) == 8
     assert {job.case.ordinal for job in target} == {0}
     assert select_target_jobs(jobs, None) is jobs
+    second_guarded = select_target_jobs(jobs, 1, 1, ["guarded"])
+    assert len(second_guarded) == 4
+    assert {job.case.ordinal for job in second_guarded} == {1}
+    assert {job.policy for job in second_guarded} == {"guarded"}
 
 
 def _job(tmp_path: Path) -> Job:

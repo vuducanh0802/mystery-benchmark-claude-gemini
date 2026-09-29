@@ -94,6 +94,13 @@ fi
 if [[ -n "${TARGET_PER_LEVEL:-}" ]]; then
   cmd+=(--target-per-level "$TARGET_PER_LEVEL")
 fi
+if [[ -n "${START_ORDINAL:-}" ]]; then
+  cmd+=(--start-ordinal "$START_ORDINAL")
+fi
+if [[ -n "${TARGET_POLICIES:-}" ]]; then
+  read -r -a target_policy_args <<< "$TARGET_POLICIES"
+  cmd+=(--target-policies "${target_policy_args[@]}")
+fi
 if [[ "${VALIDATE_ONLY:-0}" == "1" ]]; then
   cmd+=(--validate-only)
 fi
