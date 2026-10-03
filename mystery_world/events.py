@@ -437,6 +437,10 @@ def process_culprit_tampering(state: "WorldState", rng: np.random.Generator) -> 
                 if loc_ids:
                     new_loc = rng.choice(loc_ids)
                     old_loc = ev.location_id
+                    # Match inventory-relocation-missing-room-v1 used for the
+                    # released GPT-OSS recovery. Keep preceding RNG draws intact.
+                    if old_loc.startswith("inventory:"):
+                        continue
                     # update location manifests
                     if ev.id in state.locations[old_loc].objects_here:
                         state.locations[old_loc].objects_here.remove(ev.id)

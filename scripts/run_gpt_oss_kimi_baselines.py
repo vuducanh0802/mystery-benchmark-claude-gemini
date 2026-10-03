@@ -188,9 +188,17 @@ def build_config(args, cases):
 
 def main(argv=None):
     args = parse_args(argv)
-    args.benchmark_dir = args.benchmark_dir.resolve()
     args.endpoints = endpoints_from_args(args)
-    if not args.report_only:
+    return execute(args)
+
+
+def execute(
+    args, *, agent_factory=make_agent, config_factory=build_config,
+    report_writer=core.write_reports,
+):
+    """Shared execution loop for paired baselines and controlled ablations."""
+    args.benchmark_dir = args.benchmark_dir.resolve()
+    if not args.report_only and not args.validate_only:
         check_credentials(args.endpoints)
     levels = core._parse_levels(args.levels)
     cases = core.load_cases(args.benchmark_dir, levels, args.per_level)
@@ -198,7 +206,7 @@ def main(argv=None):
     # Parse all selected worlds before any endpoint call.
     for case in cases:
         core.WorldState.load(case.path)
-    config = build_config(args, cases)
+    config = config_factory(args, cases)
     jobs = core.build_jobs(cases, [e.model for e in args.endpoints.values()], args.policies, config["config_fingerprint"])
     print(f"Matrix: {len(cases)} cases x {len(args.models)} models x {len(args.policies)} policies = {len(jobs)} jobs")
     print("Transport: OpenAI-compatible endpoints; models are open-weight, not OpenAI-hosted.")
@@ -210,7 +218,7 @@ def main(argv=None):
     if args.preflight_only:
         for name in args.models:
             job = next(j for j in jobs if j.model.name == name)
-            agent = make_agent(job, args)
+            agent = agent_factory(job, args)
             text, tokens = agent._complete(
                 'Return one JSON object with action="WAIT", action_args={}, beliefs={}.',
                 "Connectivity check. Return the requested JSON object only.",
@@ -229,7 +237,7 @@ def main(argv=None):
     elif any(args.output_dir.glob("trajectories/**/*.jsonl")):
         raise ValueError("Existing trajectories have no run_config.json; choose a new OUTPUT_DIR")
     if args.report_only:
-        validation = core.write_reports(args.output_dir, jobs)
+        validation = report_writer(args.output_dir, jobs)
         print(f"Complete: {validation['complete']} ({validation['valid']}/{validation['expected']})")
         return 0 if validation["complete"] else 1
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -246,7 +254,7 @@ def main(argv=None):
             with lock:
                 if job.model.name in blocked:
                     return core.JobResult(job, "blocked", "endpoint blocked after fatal error")
-            result = core._run_job(args.output_dir, args.experiment_id, job, args, agent_factory=make_agent)
+            result = core._run_job(args.output_dir, args.experiment_id, job, args, agent_factory=agent_factory)
             if result.error and (core._is_fatal_provider_error(result.error) or "BadRequestError" in result.error):
                 with lock:
                     blocked.add(job.model.name)
@@ -267,8 +275,8 @@ def main(argv=None):
                     print(f"  ! {result.job.job_id}: {result.error[:240]}", flush=True)
                 if index % 10 == 0 or index == len(pending):
                     print(f"  {index}/{len(pending)}: {dict(counts)}", flush=True)
-        core.write_reports(args.output_dir, jobs)
-    validation = core.write_reports(args.output_dir, jobs)
+        report_writer(args.output_dir, jobs)
+    validation = report_writer(args.output_dir, jobs)
     print(f"Output: {args.output_dir}")
     print(f"Complete: {validation['complete']} ({validation['valid']}/{validation['expected']})")
     return 0 if validation["complete"] else 1

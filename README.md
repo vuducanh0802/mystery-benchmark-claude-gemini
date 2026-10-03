@@ -1,200 +1,190 @@
-# GPT-OSS / Kimi: Vanilla vs. Guarded Evaluation
+# GPT-OSS guarded ablations
 
-This branch evaluates GPT-OSS and Kimi detective agents using the same protocol
-as the Claude/Gemini experiment. It supports OpenAI-compatible Chat Completions
-endpoints provided by vLLM, SGLang, or a hosted inference service.
+Run **GPT-OSS-120B × 3 variants × 1,000 fixed cases = 3,000 episodes**.
+The runner connects to an existing OpenAI-compatible model endpoint.
+Weights and model serving are managed separately.
 
-The repository contains the evaluation runner and a frozen benchmark suite.
-Model weights and inference servers are managed separately.
+| Variant | Guard prompt + ledger | Talk redirect | Object redirect | Accusation interception |
+| --- | --- | --- | --- | --- |
+| full_minus_accuse | Yes | Yes | Yes | None |
+| delay_control | Yes | No | No | Delay the first two proposed accusations, regardless of evidence |
+| prompt_ledger (P+L) | Yes | No | No | None |
 
-Default matrix: **GPT-OSS-120B + Kimi-K2.5**, each with **vanilla + guarded**, on
-1,000 frozen case entries (200 per difficulty): **4,000 episodes**.
-GPT-OSS-20B and original Kimi-K2 are configurable below.
+Every variant inherits the original full guarded prompt, history, ledger,
+parsing and proposed/executed action tracing. The command runs three new
+variants for comparison with the existing full guarded and vanilla baselines.
 
-## 1. Clone and install
+## Clone and install
 
-```bash
-git clone --branch experiments/gpt-oss-kimi-vanilla-guarded --single-branch \
+~~~bash
+git clone --branch experiments/gpt-oss-guarded-ablations --single-branch \
   https://github.com/vuducanh0802/mystery-benchmark-claude-gemini.git \
-  mystery-benchmark-gpt-oss-kimi
-cd mystery-benchmark-gpt-oss-kimi
+  mystery-benchmark-gpt-oss-ablations
+cd mystery-benchmark-gpt-oss-ablations
 
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-experiment.txt
 cp .env.example .env
-```
+~~~
 
-Python 3.10 or newer is required. The full application has a separate Python 3.13
-environment in `pyproject.toml`; it is not required for this experiment runner.
-Keep model-serving dependencies such as vLLM in a separate environment.
+Python 3.10+ is sufficient for the client. Use a separate environment for vLLM
+or another model-serving engine.
 
-## 2. Configure model endpoints
+## Configure the endpoint
 
-Edit `.env` with the endpoint settings used for the experiment:
+Edit `.env`:
 
-```dotenv
+~~~dotenv
 GPT_OSS_BASE_URL=http://localhost:8000/v1
-GPT_OSS_MODEL=openai/gpt-oss-120b
+GPT_OSS_MODEL=gpt-oss-120b
 GPT_OSS_API_KEY=EMPTY
-GPT_OSS_REVISION=checkpoint-quantization-engine-version
-GPT_OSS_EXTRA_BODY='{"reasoning_effort":"medium"}'
-GPT_OSS_TEMPERATURE=
+GPT_OSS_EXTRA_BODY='{"reasoning_effort":"low"}'
+GPT_OSS_TEMPERATURE=0
+GPT_OSS_REVISION=unspecified
+~~~
 
-KIMI_BASE_URL=http://localhost:8001/v1
-KIMI_MODEL=moonshotai/Kimi-K2.5
-KIMI_API_KEY=EMPTY
-KIMI_REVISION=checkpoint-quantization-engine-version
-KIMI_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false},"top_p":0.95}'
-KIMI_TEMPERATURE=0.6
-```
+`GPT_OSS_MODEL` must match the server's served name. For a remote authenticated
+endpoint, set its URL and key. `provider=openai` identifies the wire protocol.
 
-- `MODEL` must match the endpoint's served name. A provider may use a different
-  name from the Hugging Face repository.
-- Replace localhost with the server hostname when using a remote server.
-- Use the real provider key for authenticated endpoints; use `EMPTY` explicitly
-  for an unauthenticated server. Keys are read from `.env`, not CLI arguments.
-- `provider=openai` in reports means **wire protocol**, not that OpenAI serves
-  GPT-OSS or Kimi. The endpoint and exact model are recorded in `run_config.json`.
-- Set `*_REVISION` to record checkpoint revision, quantization, inference engine
-  version, and server context limit. The client cannot verify remote weights.
-- Reasoning/decoding options are backend-specific. Unsupported options fail
-  loudly; they are never silently dropped. Preflight before a long run.
+The released GPT-OSS baseline used checkpoint revision
+`b5c939de8f754692c1647ca79fbf85e8c1e70f8a`, low reasoning, temperature 0,
+JSON-object output, at most **8,192 output tokens**, and **10 observations** of
+history. The ablation defaults reproduce those decoding controls. Set
+`GPT_OSS_REVISION` to the checkpoint and serving configuration actually used;
+the client cannot verify remote weights. Configure the server's reasoning
+parser to return final action JSON in `message.content`.
 
-### Other model/backend choices
+The wrapper requests JSON-object output for every variant. Explicit overrides
+`--reasoning-effort` and `--temperature` take precedence over endpoint environment
+settings. Additional decoding options in `GPT_OSS_EXTRA_BODY` are recorded;
+use the released profile when comparing against the published baseline.
 
-**GPT-OSS-20B:** set `GPT_OSS_MODEL=openai/gpt-oss-20b` (or its served alias).
+## Validate, preflight, pilot
 
-**Kimi-K2 original, non-thinking:** set the served model name, for example
-`moonshotai/Kimi-K2-Instruct`, set `KIMI_EXTRA_BODY='{}'`, and choose the decoding
-settings for that checkpoint. Do not apply K2.5-specific options automatically.
+Restore and check the bundled suite without endpoint calls:
 
-**Kimi-K2.5 Thinking on a compatible local server:** use
-`KIMI_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":true},"top_p":0.95}'`
-and `KIMI_TEMPERATURE=1.0`.
+~~~bash
+VALIDATE_ONLY=1 bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-**Moonshot hosted K2.5:** use the account API base URL, `KIMI_MODEL=kimi-k2.5`,
-and `KIMI_API_KEY=<api-key>`. For Instant mode, use
-`KIMI_EXTRA_BODY='{"thinking":{"type":"disabled"},"top_p":0.95}'` and
-`KIMI_TEMPERATURE=0.6`; for Thinking use `type=enabled` and temperature `1.0`.
+The bundle contains the same 1,000 case identities and byte-for-byte world files
+used by the published GPT-OSS run. Different existing case files are rejected.
+Source hashes are also checked by the runner, including when using an explicit
+`BENCHMARK_DIR`. A different manifest serialization is acceptable when case
+identities and bytes match. The 1,000 nominal entries include **874 byte-distinct
+worlds**.
 
-The server must return final JSON in `choices[0].message.content` and nonzero
-`usage.prompt_tokens` / `usage.completion_tokens`. Reasoning-only output is not
-an action. Configure the server's reasoning parser for the selected model. Increase
-`MAX_TOKENS` if thinking consumes the completion budget; context limits must
-accommodate the prompt **plus** this allowance. Defaults are 16,384 output tokens
-and a 10-observation history for both policies.
+Preflight makes one actual completion; run it yourself once the server is ready:
 
-References for serving (commands depend on the hardware and engine version):
-[GPT-OSS vLLM recipe](https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md),
-[Kimi-K2.5 model card](https://huggingface.co/moonshotai/Kimi-K2.5),
-[vLLM reasoning output configuration](https://docs.vllm.ai/en/latest/features/reasoning_outputs/).
+~~~bash
+PREFLIGHT_ONLY=1 bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-## 3. Validate without model calls
+Pilot all variants on one case per level (15 episodes), in a separate directory:
 
-```bash
-VALIDATE_ONLY=1 bash scripts/run_gpt_oss_kimi_baselines.sh
-```
+~~~bash
+PER_LEVEL=1 OUTPUT_DIR=results/gpt_oss_ablation_pilot \
+  bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-The launcher restores the bundled, checksummed **Claude/Gemini suite** and checks
-all selected serialized worlds. It never regenerates cases. Existing different
-files are rejected rather than overwritten. All four cells share these cases.
+## Full run and resume
 
-`benchmark_suites/claude_gemini_cases_v1.json` contains the source information and
-per-file hashes. This is the historical 1,000-entry suite, **not a deduplicated or
-new held-out test set**. It is not assumed identical to another checkout's suite.
-For another explicitly chosen dataset, set `BENCHMARK_DIR=/path/to/suite` and
-`PREPARE_BENCHMARK=0`; the runner fingerprints its actual manifest and instances.
+~~~bash
+GPT_OSS_WORKERS=32 bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-## 4. Preflight, then a small pilot
+`GPT_OSS_WORKERS` controls concurrent episodes on the endpoint, not GPU count.
+Choose a value the server can handle; the default is 1. The default output is
+`results/gpt_oss_guarded_ablations`. Repeating the same command resumes valid
+trajectories and retries incomplete episodes. Use one client process per output
+directory.
 
-Preflight makes **one real completion per selected model**, so a hosted API may
-charge for it. No investigation episodes are run in this mode:
+Defaults: all five levels, 200 cases per level, three variants, two per-call
+retries, two additional whole-episode rounds, 180-second call timeout.
+Set `PYTHON_BIN=/path/to/python` to use an existing client environment.
 
-```bash
-PREFLIGHT_ONLY=1 bash scripts/run_gpt_oss_kimi_baselines.sh
-```
+To run one variant independently:
 
-Run one case per level for each model/policy (20 episodes):
+~~~bash
+VARIANTS=full_minus_accuse OUTPUT_DIR=results/gpt_oss_minus_accuse \
+  bash scripts/run_gpt_oss_ablations.sh
+VARIANTS=delay_control OUTPUT_DIR=results/gpt_oss_delay_control \
+  bash scripts/run_gpt_oss_ablations.sh
+VARIANTS=prompt_ledger OUTPUT_DIR=results/gpt_oss_prompt_ledger \
+  bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-```bash
-PER_LEVEL=1 OUTPUT_DIR=results/pilot \
-  bash scripts/run_gpt_oss_kimi_baselines.sh
-```
+Model, endpoint, revision, cases, variant definitions, prompt, decoding, block
+limit, and Python source are fingerprinted. Changing them requires a new output
+directory. Worker counts and whole-episode retry rounds may change on resume.
+A `.env` assignment overrides the same shell variable; keep run-control variables
+commented in `.env` when using prefixed command examples.
 
-Run just GPT-OSS first if only that server is ready:
+`MAX_ACCUSE_BLOCKS=2` is the reference setting. The delay control passes accusations
+through when budget remaining is at most 5 or its delay limit has been reached,
+matching the original guard's escape conditions. It uses the original fallback
+investigation action after each delayed accusation and does not inspect evidence
+support to decide whether to delay.
 
-```bash
-MODELS=gpt-oss PER_LEVEL=1 OUTPUT_DIR=results/gpt_oss_pilot \
-  bash scripts/run_gpt_oss_kimi_baselines.sh
-```
+## Outputs and comparisons
 
-## 5. Full experiment and resume
-
-```bash
-bash scripts/run_gpt_oss_kimi_baselines.sh
-```
-
-Or run the models sequentially, on separate servers/machines, with distinct outputs:
-
-```bash
-MODELS=gpt-oss OUTPUT_DIR=results/gpt_oss_full \
-  bash scripts/run_gpt_oss_kimi_baselines.sh
-MODELS=kimi OUTPUT_DIR=results/kimi_full \
-  bash scripts/run_gpt_oss_kimi_baselines.sh
-```
-
-Defaults are one concurrent episode per endpoint. Set `GPT_OSS_WORKERS=2` and/or
-`KIMI_WORKERS=2` only when the servers have sufficient capacity. The same command
-and configuration resume completed runs; incomplete/error trajectories are retried. Do not launch
-two client processes into the same output directory.
-
-Changing model, endpoint, decoding, selected cases/policies, or relevant Python
-source requires a **new OUTPUT_DIR**. Worker count and whole-episode retry rounds
-can change without invalidating already completed trajectories. Environment
-assignments inside `.env` override prefixed shell variables; keep run controls
-commented there if using the examples above.
-
-## 6. Outputs
-
-```text
-results/gpt_oss_kimi_vanilla_guarded/
+~~~text
+results/gpt_oss_guarded_ablations/
   run_config.json
+  validation.json
   summary.csv
   summary.json
-  validation.json
-  trajectories/<model_identity>/<policy>/<level>/*.jsonl
-```
+  ablation_summary.csv
+  episode_metrics.csv
+  trajectories/<model_identity>/<variant>/<level>/*.jsonl
+~~~
 
-`validation.json` is complete only when every expected episode has a valid header,
-footer, matching case/config hashes, model output, and nonzero token usage.
-`summary.csv` reports completed valid episode scores and invalid/missing counts.
-Its inherited `attempted_n` is the **scheduled cell size**, including jobs that
-were never started after a fatal provider error; it is not an API-call count.
-A failed accusation is a valid task outcome; an API/parser failure is not.
+- `ablation_summary.csv`: per-level and overall solve/composite rates using the
+  scheduled denominator, plus valid/invalid counts and actions/tokens/interventions.
+  Invalid and pending episodes count as zero; partial rates are provisional.
+- `episode_metrics.csv`: one row per scheduled case/variant, case/world hash,
+  validity, scores, actions, tokens and guard reasons. Pair by `instance_id`;
+  cluster duplicate worlds by `source_sha256` for uncertainty estimates.
+- `summary.csv`: inherited valid-only metrics by level, with invalid counts.
+- `validation.json`: completion is true only when every expected trajectory
+  passes header/config/case, terminal, model-response and token checks.
+- Trajectories retain the model's proposed action, executed action and intervention
+  reason. Provider/parser failures stay invalid.
 
-`REPORT_ONLY=1` rebuilds reports without calls; use the same model/settings and
-selection as the run. Partial runs return exit code 1. Configuration errors return 2.
+The inherited action budgets, deterministic NPC fallback, passive culprit and
+scoring are unchanged. This branch includes the
+`inventory-relocation-missing-room-v1` environment repair used in the published
+GPT-OSS recovery: a move of inventory-held evidence is skipped after the original
+random draws. Other invalid room identifiers still fail.
 
-To share results, archive only the experiment directory:
+Compare **Full vs full_minus_accuse** for the accusation gate's conditional
+contribution, **Full vs prompt_ledger** for all action interception, and
+**delay_control vs prompt_ledger** for generic delay. Full and delay control also
+differ in talk/object redirects; their difference cannot isolate evidence checking
+alone. Analyze within a model and use paired cases.
 
-```bash
-tar -czf mystery-gpt-oss-kimi-results.tar.gz \
-  -C results gpt_oss_kimi_vanilla_guarded
-```
+Reference results and configurations:
+[Hugging Face release](https://huggingface.co/datasets/Elfsong/Mystery-Benchmark-Full/tree/a4e88a7ca2fd7530e703f76a73dde87488c9a680/run/gpt_oss_120b).
+Access to its gated files requires a permitted Hugging Face account. Running this
+branch uses the bundled suite and requires no Hugging Face download.
 
-Archive the model-server configuration and version separately. Do not include `.env`.
+Rebuild reports without model calls:
 
-## Protocol and tests
+~~~bash
+REPORT_ONLY=1 bash scripts/run_gpt_oss_ablations.sh
+~~~
 
-The world, scoring, vanilla prompt, and guarded logic are inherited from the
-Claude/Gemini branch. Culprit is passive and interviews use the fixed deterministic
-fallback. Guarded traces retain proposed actions, executed actions, and intervention
-reasons. This branch does not claim to improve or redesign the guard.
+The command returns 0 for complete validation, 1 for incomplete results, and 2 for
+configuration errors. Use the original run's settings when rebuilding reports.
 
-Offline tests use a fake HTTP endpoint, **not real model inference**:
+## Offline tests
 
-```bash
+~~~bash
 .venv/bin/pip install pytest
-.venv/bin/python -m pytest -q tests/test_gpt_oss_kimi_baselines.py \
-  tests/test_claude_gemini_baselines.py
-```
+.venv/bin/python -m pytest -q tests/test_gpt_oss_ablations.py \
+  tests/test_gpt_oss_kimi_baselines.py tests/test_claude_gemini_baselines.py
+~~~
+
+Tests use a synthetic local HTTP endpoint and do not invoke a model.
+The original paired runner remains documented in
+[GPT-OSS/Kimi baseline instructions](docs/GPT_OSS_KIMI_BASELINES.md).

@@ -377,7 +377,7 @@ def _is_fatal_provider_error(error: str) -> bool:
         "authenticationerror", "permissiondenied", "invalid_api_key",
         "incorrect api key", "status code: 401", "error code: 401",
         "status code: 403", "error code: 403", "status code: 404",
-        "error code: 404", "model not found", "unknown model",
+        "error code: 404", "model not found",
     ))
 
 
@@ -385,7 +385,10 @@ def _safe_mean(rows: list[dict[str, Any]], key: str) -> float | None:
     return mean(float(row[key]) for row in rows) if rows else None
 
 
-def write_reports(output_dir: Path, jobs: list[Job]) -> dict[str, Any]:
+def write_reports(
+    output_dir: Path, jobs: list[Job], *,
+    episode_rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     expanded: list[dict[str, Any]] = []
     invalid: list[dict[str, str]] = []
     invalid_reasons: dict[str, str] = {}
@@ -405,6 +408,8 @@ def write_reports(output_dir: Path, jobs: list[Job]) -> dict[str, Any]:
         actions = int(metrics.get("actions_used") or summary.get("actions_taken") or 0)
         budget = int(metrics.get("action_budget") or summary.get("budget") or 0)
         expanded.append({
+            "instance_id": job.case.instance_id,
+            "source_sha256": job.case.sha256,
             "model_identity": job.model.identity,
             "model_name": job.model.name,
             "provider": job.model.provider,
@@ -425,7 +430,14 @@ def write_reports(output_dir: Path, jobs: list[Job]) -> dict[str, Any]:
             "guard_interventions": sum(
                 bool(step.get("guard_intervention")) for step in steps
             ),
+            "guard_reasons": [
+                step["guard_intervention"].get("reason", "")
+                for step in steps if step.get("guard_intervention")
+            ],
         })
+
+    if episode_rows is not None:
+        episode_rows.extend(expanded)
 
     expected_groups: dict[tuple[str, str, str], list[Job]] = defaultdict(list)
     for job in jobs:
