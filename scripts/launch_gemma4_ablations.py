@@ -85,6 +85,7 @@ def check_resources(args):
             raise ValueError(f"GPU {gpu} is unavailable or already occupied; existing processes were not modified")
     for port in args.ports:
         with socket.socket() as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("127.0.0.1", port))
 
 
