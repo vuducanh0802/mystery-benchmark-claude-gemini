@@ -244,7 +244,11 @@ def execute(
     if not path.exists():
         path.write_text(json.dumps(config, indent=2))
 
-    limits = {"gpt-oss": args.gpt_oss_workers, "kimi": args.kimi_workers}
+    limits = getattr(args, "worker_limits", None)
+    if limits is None:
+        limits = {"gpt-oss": args.gpt_oss_workers, "kimi": args.kimi_workers}
+    if any(name not in limits or limits[name] <= 0 for name in args.models):
+        raise ValueError("Every selected model needs a positive worker limit")
     semaphores = {name: threading.BoundedSemaphore(limits[name]) for name in args.models}
     blocked = set()
     lock = threading.Lock()

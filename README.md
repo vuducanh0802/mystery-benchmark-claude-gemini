@@ -1,8 +1,47 @@
-# GPT-OSS guarded ablations
+# GPT-OSS and Gemma-4 guarded ablations
 
 Run **GPT-OSS-120B × 3 variants × 1,000 fixed cases = 3,000 episodes**.
 The runner connects to an existing OpenAI-compatible model endpoint.
 Weights and model serving are managed separately.
+
+## Gemma-4-31B
+
+`scripts/run_gemma4_ablations.py` runs the same three variants and the same frozen
+1,000 cases. Its Gemma decoding profile is temperature 0, history 4, at most 768
+output tokens, strict detective JSON schema, and 300-second request timeout.
+Disable thinking on the model server. `--base-urls` accepts multiple replicas;
+`--workers` is the total concurrent episode count across all replicas.
+
+For cached Q4_K_M weights and a compatible llama.cpp executable, this launcher
+starts one replica on each specified GPU, checks all endpoints, completes a
+15-episode pilot, and then runs/resumes the 3,000 episodes:
+
+~~~bash
+.venv/bin/python -u scripts/launch_gemma4_ablations.py \
+  --llama-server /path/to/llama-server --gguf /path/to/gemma-4-31B-it-Q4_K_M.gguf \
+  --gpus 0 2 3 --ports 8332 8333 8334 \
+  --output-dir results/gemma4_guarded_ablations
+~~~
+
+The launcher verifies the cached checkpoint checksum and writes serving
+provenance, per-server logs, launcher status, and the same episode/summary reports
+as GPT-OSS. Pilot trajectories are stored separately. Only servers created by
+the launcher are stopped after completion. Rerun with the identical settings to
+resume; `--pilot-per-level 0` skips the pilot on resume.
+
+**The historical Gemma Full Guarded run used different serialized worlds and a
+different guard implementation.** To obtain a matched control for paper
+comparisons, add `--include-guarded-reference` to either Gemma command. This adds
+1,000 Full Guarded episodes, for 4,000 total and a 20-episode pilot. The historical
+Gemma solve rate must not be presented as a paired ablation control for this run.
+
+Offline validation against existing cases:
+
+~~~bash
+.venv/bin/python scripts/run_gemma4_ablations.py --validate-only
+~~~
+
+## GPT-OSS variants
 
 | Variant | Guard prompt + ledger | Talk redirect | Object redirect | Accusation interception |
 | --- | --- | --- | --- | --- |

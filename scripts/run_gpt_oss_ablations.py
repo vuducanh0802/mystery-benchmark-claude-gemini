@@ -123,23 +123,34 @@ def reference_case_hashes():
     return expected
 
 
-def build_config(args, cases):
+def build_ablation_config(args, cases, *, variants, reference_release):
     expected = reference_case_hashes()
     for case in cases:
         if expected.get(case.instance_id) != case.sha256:
-            raise ValueError(f"Case differs from the fixed GPT-OSS baseline suite: {case.instance_id}")
+            raise ValueError(f"Case differs from the fixed paired benchmark suite: {case.instance_id}")
     config = paired.build_config(args, cases)
     config.pop("config_fingerprint")
     created = config.pop("created_at")
     config.update(
         ablation_version=ABLATION_VERSION,
-        variants={name: VARIANTS[name].metadata(args.max_accuse_blocks) for name in args.variants},
+        variants=variants,
         guarded_system_prompt_sha256=hashlib.sha256(BIAS_GUARDED_SYSTEM_PROMPT.encode()).hexdigest(),
         byte_distinct_worlds=len({case.sha256 for case in cases}),
         environment={
             "patch": "inventory-relocation-missing-room-v1",
             "events_sha256": core._sha256(ROOT / "mystery_world/events.py"),
         },
+        reference_release=reference_release,
+    )
+    config["config_fingerprint"] = core._stable_hash(config)
+    config["created_at"] = created
+    return config
+
+
+def build_config(args, cases):
+    return build_ablation_config(
+        args, cases,
+        variants={name: VARIANTS[name].metadata(args.max_accuse_blocks) for name in args.variants},
         reference_release={
             "dataset": "Elfsong/Mystery-Benchmark-Full",
             "revision": "a4e88a7ca2fd7530e703f76a73dde87488c9a680",
@@ -147,9 +158,6 @@ def build_config(args, cases):
             "case_identity_and_bytes_verified": True,
         },
     )
-    config["config_fingerprint"] = core._stable_hash(config)
-    config["created_at"] = created
-    return config
 
 
 def write_csv(path, rows):
